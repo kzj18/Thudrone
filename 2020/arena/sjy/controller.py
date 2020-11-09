@@ -98,6 +98,7 @@ class ControllerNode:
         dx = x_d - x_now
         dy = y_d - y_now
         #dz = z_d - z_now
+        
         if dx == 0:
             if dy > 0:
                 yaw = 90
@@ -105,16 +106,16 @@ class ControllerNode:
                 yaw = -90
         elif dx > 0:
             if dy > 0:
-                yaw = math.atan(dy/dx)
+                yaw = math.degrees(math.atan(dy/dx))
             elif dy < 0:
-                yaw = -math.atan(-dy/dx)
+                yaw = -math.degrees(math.atan(-dy/dx))
             else:
                 yaw = 0
         else:
             if dy > 0:
-                yaw = (180 - math.atan(-dy/dx))
+                yaw = (180 - math.degrees(math.atan(-dy/dx)))
             elif dy < 0:
-                yaw = -(180 - math.atan(dy/dx))
+                yaw = -(180 - math.degrees(math.atan(dy/dx)))
             else:
                 yaw = 180
         return yaw
@@ -124,13 +125,13 @@ class ControllerNode:
         if self.flight_state_ == self.FlightState.WAITING:  # 起飞并飞至离墙体（y = 3.0m）适当距离的位置
             rospy.logwarn('State: WAITING')
             self.publishCommand('takeoff')
-            self.navigating_queue_ = deque([[1, 1.8, 1.75]])
+            self.publishCommand('up 25')
+            self.navigating_queue_ = deque([[5, 5, 4]])
             self.switchNavigatingState()
             self.next_state_ = self.FlightState.NAVIGATING
             self.next_state_navigation = self.FlightState.DETECTING_TARGET
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.NAVIGATING:
-            rospy.logwarn('State: NAVIGATING %f'%(self.navigating_destination_))
             # 如果yaw与90度相差超过正负10度，需要进行旋转调整yaw
             #(yaw, pitch, roll) = self.R_wu_.as_euler('zyx', degrees=True)
             #yaw_diff = yaw - 90 if yaw > -90 else yaw + 270
@@ -144,6 +145,9 @@ class ControllerNode:
             #test
             (x_now, y_now, z_now) = self.t_wu_
             (x_d, y_d, z_d) = self.navigating_destination_
+            rospy.logwarn('State: NAVIGATING %f,%f,%f'%(x_d, y_d, z_d))
+            rospy.logwarn('position %f,%f,%f'%(x_now, y_now, z_now))
+            
             dh = math.sqrt((x_d - x_now)**2 + (y_d - y_now)**2)
             if dh < self.navigating_position_accuracy:  # 当前段导航结束
                 if len(self.navigating_queue_) == 0:
@@ -154,12 +158,13 @@ class ControllerNode:
             else:
                 phi = self.yaw_cal()
                 self.yaw_desired = phi
+                rospy.logwarn('angle %f'%phi)
                 self.yaw_PID()
                 rospy.loginfo('dist: %f'%dh)
                 if dh > 1:
                     self.publishCommand('forward '+'100')
                 else:
-                    self.publishCommand('forward '+str(int(100*dh)))
+                    self.publishCommand('forward '+str(int(0.75*dh)))
                 #dir_index = 0 if dist > 0 else 1  # direction index
                 #根据维度（dim_index）和导航方向（dir_index）决定使用哪个命令
                 #command = [['right', 'left'], ['forward', 'back'], ['up', 'down']]
@@ -173,11 +178,12 @@ class ControllerNode:
         elif self.flight_state_ == self.FlightState.DETECTING_TARGET:
             rospy.logwarn('State: DETECTING_TARGET')
             # 如果无人机飞行高度与标识高度（1.75m）相差太多，则需要进行调整
-            if self.t_wu_[2] > 2.0:
-                self.publishCommand('down %d' % int(100*(self.t_wu_[2] - 1.75)))
+            fire_height = 4
+            if self.t_wu_[2] > fire_height + 0.25:
+                self.publishCommand('down %d' % int(100*(self.t_wu_[2] - fire_height)))
                 return
-            elif self.t_wu_[2] < 1.5:
-                self.publishCommand('up %d' % int(-100*(self.t_wu_[2] - 1.75)))
+            elif self.t_wu_[2] < fire_height - 0.25:
+                self.publishCommand('up %d' % int(-100*(self.t_wu_[2] - fire_height)))
                 return
             # 如果yaw与90度相差超过正负10度，需要进行旋转调整yaw
             #(yaw, pitch, roll) = self.R_wu_.as_euler('zyx', degrees=True)
