@@ -8,16 +8,18 @@ import numpy as np
 import time
 
 test_mode = False
-img_file = '//home//kzj18//Pictures//data'
-record_data = '//home//kzj18//Pictures//data//record'
+#img_file = '//home//kzj18//Pictures//data'
+img_file = os.path.abspath('').replace('/', '//') + '//data'
+#record_data = '//home//kzj18//Pictures//data//record'
+record_data = os.path.abspath('').replace('/', '//') + '//data//record'
 COLOR_RANGE = {
-    'red': [(0, 43, 46), (6, 255, 255)],
-    'yellow': [(26, 43, 46), (34, 255, 255)],
-    'blue': [(100, 43, 46), (124, 255, 255)]
+    'r': [(0, 43, 46), (6, 255, 255)],
+    'y': [(26, 43, 46), (34, 255, 255)],
+    'b': [(100, 43, 46), (124, 255, 255)]
 }
 
 # 判断是否检测到目标
-def detectFire(image, color='red', record_mode = False):
+def detectFire(image, color='r', record_mode = False):
     if image is None:
         return 'No Picture'
     width = image.shape[1]
@@ -66,19 +68,19 @@ def detectFire(image, color='red', record_mode = False):
 
 def detectBall(image, record_mode = False):
     if image is None:
-        return 'No Picture'
+        return ['No Picture', 0]
     area = {
-        'red': 0,
-        'yellow': 0,
-        'blue': 0
+        'r': 0,
+        'y': 0,
+        'b': 0
     }
     contour = {
-        'red': None,
-        'yellow': None,
-        'blue': None
+        'r': None,
+        'y': None,
+        'b': None
     }
     image_copy = image.copy()
-    for color in ['red', 'yellow', 'blue']:
+    for color in ['r', 'y', 'b']:
         closed = get_mask(image_copy, COLOR_RANGE, color, 'ball')
         (image_contours, contours, hierarchy) = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # 找出轮廓
 
@@ -106,8 +108,8 @@ def detectBall(image, record_mode = False):
                 contour_pic = image_copy.copy()
                 cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
                 savepic(img_file, 'contour', contour_pic)
-            return color
-    return 'None'
+            return [color, area[color]]
+    return ['e', 0]
 
 def get_mask(image, color_range, color, task):
     name = task + '_' + color + '_'
@@ -136,7 +138,7 @@ def savepic(folder_name, file_name, pic):
     folder_name += '//' + current
     file_name = folder_name + '//' + file_name + '.png'
     if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
+        os.makedirs(folder_name)
     if not os.path.exists(file_name):
         cv2.imwrite(file_name, pic)
     return
@@ -145,7 +147,7 @@ def recordpic(folder_name, file_name, pic):
     current = time.strftime('%b_%d_%Y_%H_%M_%S_')
     file_name = folder_name + '//' + current + file_name + '.png'
     if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
+        os.makedirs(folder_name)
     if not os.path.exists(file_name):
         cv2.imwrite(file_name, pic)
     return
