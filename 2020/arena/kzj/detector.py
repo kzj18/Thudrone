@@ -53,10 +53,10 @@ def detectFire(image, color='r', record_mode = False):
             savepic(img_file, 'gray', gray_image)
         if record_mode:
             circle_pic = image_copy.copy()
-            recordpic(record_data, 'original', circle_pic)
+            recordpic(record_data, 'original_success', circle_pic)
             cv2.circle(circle_pic, (r_max_circle[0], r_max_circle[1]), r_max_circle[2], (0, 255, 0), 1)
-            recordpic(record_data, 'circle', circle_pic)
-            recordpic(record_data, 'gray', gray_image)
+            recordpic(record_data, 'circle_success', circle_pic)
+            recordpic(record_data, 'gray_success', gray_image)
 
         result = 'center'
         if r_max_circle[0] > 0.75*width:
@@ -64,6 +64,10 @@ def detectFire(image, color='r', record_mode = False):
         elif r_max_circle[0] < 0.25*width:
             result = 'left'
         return result
+    elif record_mode:
+        circle_pic = image_copy.copy()
+        recordpic(record_data, 'original_unsuccess', circle_pic)
+        recordpic(record_data, 'gray_unsuccess', gray_image)
     return 'None'
 
 def detectBall(image, record_mode = False):
@@ -100,15 +104,19 @@ def detectBall(image, record_mode = False):
     if contour[color] is not None:
         if record_mode:
             contour_pic = image_copy.copy()
-            recordpic(record_data, 'original', contour_pic)
+            recordpic(record_data, 'original_success', contour_pic)
             cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
-            recordpic(record_data, 'contour', contour_pic)
+            recordpic(record_data, 'contour_%d'%area[color], contour_pic)
         if area[color] > 50:
             if test_mode:
                 contour_pic = image_copy.copy()
                 cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
                 savepic(img_file, 'contour', contour_pic)
             return [color, area[color]]
+    elif record_mode:
+        contour_pic = image_copy.copy()
+        recordpic(record_data, 'original_unsuccess', contour_pic)
+
     return ['e', 0]
 
 def get_mask(image, color_range, color, task):
