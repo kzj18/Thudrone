@@ -614,7 +614,7 @@
     </model>
 
     <model name="box_21">
-      <pose>1.75 2.95 1.0  0 0 0</pose>
+      <pose>4.25 2.95 1.0  0 0 0</pose>
       <static>true</static>
       <link name="link">
         <collision name="collision">
@@ -642,7 +642,7 @@
     </model>
 
     <model name="box_22">
-      <pose>4.25 2.95 1.0  0 0 0</pose>
+      <pose>6.75 2.95 1.0  0 0 0</pose>
       <static>true</static>
       <link name="link">
         <collision name="collision">

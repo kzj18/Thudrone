@@ -32,6 +32,10 @@ if __name__ == "__main__":
                     for point_blue in points['blue']:
                         current_points['blue'] = point_blue
                         result = text * 1
+                        unfire = points_fire * 1
+                        unfire.remove(point_fire)
+                        for index, iterm in enumerate(unfire):
+                            result = result.replace('unfire%d'%index, str(fire_coordinate[iterm]))
                         result = result.replace('fire', str(fire_coordinate[point_fire]))
                         for color in ['red', 'yellow', 'blue']:
                             for index, dimension in enumerate(['x', 'y', 'z']):
