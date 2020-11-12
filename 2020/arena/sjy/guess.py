@@ -2,6 +2,7 @@
 #-*- encoding: utf8 -*-
 
 import numpy as np
+import copy
 
 '''
 result_format = [
@@ -15,7 +16,7 @@ result_format = [
 COLOR = ['r', 'y', 'b']
 
 def guess(input_result):
-    result = input_result[:]
+    result = copy.deepcopy(input_result)
     for index, iterm in enumerate(result):
         if iterm == []:
             result[index].append(['e', 0])
@@ -68,7 +69,7 @@ def guess(input_result):
     return answer
 
 def confident(input_result):
-    result = input_result[:]
+    result = copy.deepcopy(input_result)
     for index, iterm1 in enumerate(result):
         if not iterm1 == []:
             counter = {
@@ -106,6 +107,11 @@ def confident(input_result):
     elif (len(counter['r']) * len(counter['y']) == 1) or (len(counter['r']) * len(counter['b']) == 1) or (len(counter['b']) * len(counter['y']) == 1) and\
         (len(counter['r']) * len(counter['y']) * len(counter['b']) == 0):
         if len(counter['e']) == 2:
+            for color in COLOR:
+                if len(counter[color]) == 0:
+                    for index, point in enumerate(result):
+                        if point == []:
+                            result[index].append([color, -1])
             return guess(result)
     return('unsure')
 
