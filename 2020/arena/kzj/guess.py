@@ -7,12 +7,12 @@ import numpy as np
 result_format = [
     [['r', 50], ['e', 0], ['e', 0],...]
     [['e', 0], ['e', 0],...]
-    [['g', 20], ['e', 0],...]
+    [['y', 20], ['e', 0],...]
     [['b', 30], ['e', 0],...]
     [['e', 0], ['e', 0],...]
 ]
 '''
-COLOR = ['r', 'g', 'b']
+COLOR = ['r', 'y', 'b']
 
 def guess(input_result):
     result = input_result[:]
@@ -22,7 +22,7 @@ def guess(input_result):
     for index, iterm1 in enumerate(result):
         counter = {
             'r': [0, 0],
-            'g': [0, 0],
+            'y': [0, 0],
             'b': [0, 0],
             'e': [0, 0]
         }
@@ -44,7 +44,7 @@ def guess(input_result):
     answer = ''
     counter = {
         'r': [],
-        'g': [],
+        'y': [],
         'b': [],
         'e': []
     }
@@ -67,9 +67,52 @@ def guess(input_result):
         answer += key[0]
     return answer
 
+def confident(input_result):
+    result = input_result[:]
+    for index, iterm1 in enumerate(result):
+        if not iterm1 == []:
+            counter = {
+                'r': [0, 0],
+                'y': [0, 0],
+                'b': [0, 0],
+                'e': [0, 0]
+            }
+            for iterm2 in iterm1:
+                counter[iterm2[0]][0] += 1
+                if iterm2[1] > counter[iterm2[0]][1]:
+                    counter[iterm2[0]][1] = iterm2[1]
+            max_color = max(COLOR, key=lambda x: counter[x][0])
+            max_value = counter[max_color][0]
+            if max_value < counter['e'][0]:
+                result[index] = [['e', 0]]
+            else:
+                max_list = []
+                for name, value in counter.items():
+                    if value[0] == max_value:
+                        max_list.append(name)
+                color = max(max_list, key=lambda y: counter[y][1])
+                result[index] = [[color, counter[color][1]]]
+    counter = {
+        'r': [],
+        'y': [],
+        'b': [],
+        'e': []
+    }
+    for index, point in enumerate(result):
+        if not point == []:
+            counter[point[0][0]].append(index)
+    if len(counter['r']) == 1 and len(counter['y']) == 1 and len(counter['b']) == 1:
+        return guess(result)
+    elif (len(counter['r']) * len(counter['y']) == 1) or (len(counter['r']) * len(counter['b']) == 1) or (len(counter['b']) * len(counter['y']) == 1) and\
+        (len(counter['r']) * len(counter['y']) * len(counter['b']) == 0):
+        if len(counter['e']) == 2:
+            return guess(result)
+    return('unsure')
+
 if __name__ == "__main__":
     size = int(input('size:'))
     output = bool(input('output:'))
+    show_confident = bool(input('show confident:'))
     for _ in range(size):
         test = [
             [],
@@ -89,10 +132,18 @@ if __name__ == "__main__":
                 test[index].append([color, area])
         
         guess_answer = guess(test)
-        if guess_answer.count('r') == 1 and guess_answer.count('g') == 1 and guess_answer.count('b') == 1:
+        if guess_answer.count('r') == 1 and guess_answer.count('y') == 1 and guess_answer.count('b') == 1:
             if output:
-                print(test)
-                print(guess_answer)
+                confident_answer = confident(test)
+                if show_confident:
+                    if not confident_answer == 'unsure':
+                        print(test)
+                        print(confident_answer)
+                        print(guess_answer)
+                else :
+                    print(test)
+                    print(confident_answer)
+                    print(guess_answer)
         else:
             print(test)
             print(guess_answer)
