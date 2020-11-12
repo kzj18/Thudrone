@@ -8,8 +8,10 @@ import numpy as np
 import time
 
 test_mode = False
-img_file = '//home//kzj18//Pictures//data'
-record_data = '//home//kzj18//Pictures//data//record'
+#img_file = '//home//kzj18//Pictures//data'
+img_file = os.path.abspath('').replace('/', '//') + '//data'
+#record_data = '//home//kzj18//Pictures//data//record'
+record_data = os.path.abspath('').replace('/', '//') + '//data//record'
 COLOR_RANGE = {
     'r': [(0, 43, 46), (6, 255, 255)],
     'y': [(26, 43, 46), (34, 255, 255)],
@@ -51,10 +53,10 @@ def detectFire(image, color='r', record_mode = False):
             savepic(img_file, 'gray', gray_image)
         if record_mode:
             circle_pic = image_copy.copy()
-            recordpic(record_data, 'original', circle_pic)
+            recordpic(record_data, 'original_success', circle_pic)
             cv2.circle(circle_pic, (r_max_circle[0], r_max_circle[1]), r_max_circle[2], (0, 255, 0), 1)
-            recordpic(record_data, 'circle', circle_pic)
-            recordpic(record_data, 'gray', gray_image)
+            recordpic(record_data, 'circle_success', circle_pic)
+            recordpic(record_data, 'gray_success', gray_image)
 
         result = 'center'
         if r_max_circle[0] > 0.75*width:
@@ -62,11 +64,15 @@ def detectFire(image, color='r', record_mode = False):
         elif r_max_circle[0] < 0.25*width:
             result = 'left'
         return result
+    elif record_mode:
+        circle_pic = image_copy.copy()
+        recordpic(record_data, 'original_unsuccess', circle_pic)
+        recordpic(record_data, 'gray_unsuccess', gray_image)
     return 'None'
 
 def detectBall(image, record_mode = False):
     if image is None:
-        return 'No Picture'
+        return ['No Picture', 0]
     area = {
         'r': 0,
         'y': 0,
@@ -98,16 +104,20 @@ def detectBall(image, record_mode = False):
     if contour[color] is not None:
         if record_mode:
             contour_pic = image_copy.copy()
-            recordpic(record_data, 'original', contour_pic)
+            recordpic(record_data, 'original_success', contour_pic)
             cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
-            recordpic(record_data, 'contour', contour_pic)
+            recordpic(record_data, 'contour_%d'%area[color], contour_pic)
         if area[color] > 50:
             if test_mode:
                 contour_pic = image_copy.copy()
                 cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
                 savepic(img_file, 'contour', contour_pic)
-            return color
-    return 'e'
+            return [color, area[color]]
+    elif record_mode:
+        contour_pic = image_copy.copy()
+        recordpic(record_data, 'original_unsuccess', contour_pic)
+
+    return ['e', 0]
 
 def get_mask(image, color_range, color, task):
     name = task + '_' + color + '_'
@@ -136,7 +146,7 @@ def savepic(folder_name, file_name, pic):
     folder_name += '//' + current
     file_name = folder_name + '//' + file_name + '.png'
     if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
+        os.makedirs(folder_name)
     if not os.path.exists(file_name):
         cv2.imwrite(file_name, pic)
     return
@@ -145,7 +155,7 @@ def recordpic(folder_name, file_name, pic):
     current = time.strftime('%b_%d_%Y_%H_%M_%S_')
     file_name = folder_name + '//' + current + file_name + '.png'
     if not os.path.exists(folder_name):
-        os.mkdir(folder_name)
+        os.makedirs(folder_name)
     if not os.path.exists(file_name):
         cv2.imwrite(file_name, pic)
     return
