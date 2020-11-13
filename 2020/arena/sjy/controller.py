@@ -20,8 +20,14 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import detector
 import guess
+from rosgraph_msgs.msg import Clock
 
-
+def rostime2str(rostime):
+    min = str(rostime.secs // 60).zfill(2)
+    sec = str(rostime.secs % 60).zfill(2)
+    nsec = str(rostime.nsecs // 10000000).zfill(2)
+    result = [int(min), int(sec), int(nsec)]
+    return result  
 class ControllerNode:
     class FlightState(Enum):  # 飞行状态
         WAITING = 1
@@ -63,7 +69,7 @@ class ControllerNode:
 
         self.commandPub_ = rospy.Publisher('/tello/cmd_string', String, queue_size=100)  # 发布tello格式控制信号
         self.resultPub_ = rospy.Publisher('/tello/target_result', String, queue_size=100)  # 发布tello result
-
+        self.simtimeSub_ = rospy.Subscriber('/clock', Clock, self.simtimeCallback)
         self.poseSub_ = rospy.Subscriber('/tello/states', PoseStamped, self.poseCallback)  # 接收处理含噪无人机位姿信息
         self.imageSub_ = rospy.Subscriber('/iris/usb_cam/image_raw', Image, self.imageCallback)  # 接收摄像头图像
         self.imageSub_ = rospy.Subscriber('/tello/cmd_start', Bool, self.startcommandCallback)  # 接收开始飞行的命令
@@ -78,13 +84,20 @@ class ControllerNode:
         self.color_list = [[], [], [], [], []]
         self.detect_times = 0
         self.fast_way = 0
+        self.time_begin_=[0, 0, 0]
         
         while not rospy.is_shutdown():
             if self.is_begin_:
+               
+                if self.time_now_[0] - self.time_begin_[0] == 7 and self.time_now_[1] >= 55:
+                    self.result = guess.guess(self.color_list)
+                    self.publishResult(self.result)
                 self.decision()
             
         rospy.logwarn('Controller node shut down.')
-
+    def simtimeCallback(self, msg):
+        x = msg.clock
+        self.time_now_ = rostime2str(x)
     def yaw_PID(self, accuracy = 0):
         '''
         yaw control 
@@ -284,6 +297,9 @@ class ControllerNode:
         if self.flight_state_ == self.FlightState.WAITING:  # 起飞并飞至离墙体（y = 3.0m）适当距离的位置
             rospy.logwarn('State: WAITING')
             self.publishCommand('takeoff')
+            rate = rospy.Rate(0.6)
+            self.time_begin_ = self.time_now_
+            rate.sleep()
             self.navigating_queue_ = deque([])
             self.next_state_ = self.FlightState.DETECTING_TARGET
             self.next_state_navigation = self.FlightState.DETECTING_TARGET
@@ -354,10 +370,16 @@ class ControllerNode:
             if self.win_index > 2:
                 self.win_index = 0
             if self.t_wu_[0] > self.window_x_list_[self.win_index] + 0.3:
+                if abs(self.t_wu_[0] - self.window_x_list_[self.win_index]) >= 3.5:
+                    self.publishCommand('left 350')
+                    return
                 self.publishCommand('left %d' % int(100*abs(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                 rospy.logwarn('adjust x')
                 return
             elif self.t_wu_[0] < self.window_x_list_[self.win_index] - 0.3:
+                if abs(self.t_wu_[0] - self.window_x_list_[self.win_index]) >= 3.5:
+                    self.publishCommand('left 350')
+                    return
                 self.publishCommand('right %d' % int(100*abs(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                 rospy.logwarn('adjust x')
                 return
@@ -392,16 +414,16 @@ class ControllerNode:
             rospy.logwarn('WINDOW' )
             if self.BAll_flag == 0:
                 rospy.logwarn('st0' )
-                height = 1
+                height = 0.8
                 alpha = 1.3
                 if self.yaw_PID() == False:
                     return
                     
-                if self.t_wu_[2] > height + 0.1:
+                if self.t_wu_[2] > height + 0.2:
                     self.publishCommand('down %d' % int(alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('down' )
                     return
-                elif self.t_wu_[2] < height - 0.3:
+                elif self.t_wu_[2] < height - 0.2:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
                     return
