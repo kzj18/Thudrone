@@ -427,14 +427,14 @@ class ControllerNode:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
                     return
-                if self.t_wu_[1] < 1.8:
-                    if self.t_wu_[1] < 1.6:
-                        self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
-                    else:
-                        self.publishCommand('forward %d' % int(25))
-                        rospy.logwarn('micro' )
-                    rospy.logwarn('forward' )
-                    return
+                #if self.t_wu_[1] < 1.8:
+                   # if self.t_wu_[1] < 1.6:
+                   #     self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
+                    #else:
+                   #     self.publishCommand('forward %d' % int(25))
+                  #      rospy.logwarn('micro' )
+                  #  rospy.logwarn('forward' )
+                  #  return
                 
                 if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
                     self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))

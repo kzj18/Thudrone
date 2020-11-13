@@ -106,8 +106,8 @@ def detectBall(image, record_mode = False):
             contour_pic = image_copy.copy()
             recordpic(record_data, 'original_success', contour_pic)
             cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
-            recordpic(record_data, 'contour_%d'%area[color], contour_pic)
-        if area[color] > 50:
+            recordpic(record_data, 'contour_' + color + '_%d'%area[color], contour_pic)
+        if area[color] > 150:
             if test_mode:
                 contour_pic = image_copy.copy()
                 cv2.drawContours(contour_pic, [contour[color]], 0, (0, 255, 0))
