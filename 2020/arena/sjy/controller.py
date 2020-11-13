@@ -89,15 +89,31 @@ class ControllerNode:
         while not rospy.is_shutdown():
             if self.is_begin_:
                
-                if self.time_now_[0] - self.time_begin_[0] == 7 and self.time_now_[1] >= 55:
+                if self.time_judge() == True:
+                    print(self.color_list)
                     self.result = guess.guess(self.color_list)
                     self.publishResult(self.result)
                 self.decision()
             
         rospy.logwarn('Controller node shut down.')
+
+    def time_judge(self):
+        [m_n, s_n, ns_n] = self.time_now_
+        [m_b, s_b, ns_b] = self.time_begin_
+        
+        if s_n - s_b < 0:
+            m_n -= 1
+            s_n += 60
+        print(str(m_n - m_b) + ':' + str(s_n - s_b))
+        if m_n - m_b >= 7 and s_n - s_b >= 55:
+            return True
+        return False
+
+
     def simtimeCallback(self, msg):
         x = msg.clock
         self.time_now_ = rostime2str(x)
+    
     def yaw_PID(self, accuracy = 0):
         '''
         yaw control 
@@ -268,11 +284,12 @@ class ControllerNode:
         [self.color, area] = detector.detectBall(self.image_, True)
         self.yaw_desired = yaw_d
         if self.yaw_PID() == True:
-            if  self.color == 'e':
+            if  self.color == 'e' or area < 150:
                 self.detect_times +=1
+                self.color_list[BALL_num - 1].append([self.color, area])
                 if self.detect_times > 4:
-                    self.color_list[BALL_num - 1].append([self.color, area])
-                    rospy.logwarn('e' )
+                    
+                    rospy.logwarn('e or small' )
                     self.switch_state(next_stage)
                     return True
             else:
@@ -296,9 +313,10 @@ class ControllerNode:
 #**************************************************************************************************************************
         if self.flight_state_ == self.FlightState.WAITING:  # 起飞并飞至离墙体（y = 3.0m）适当距离的位置
             rospy.logwarn('State: WAITING')
+            self.time_begin_ = self.time_now_
             self.publishCommand('takeoff')
             rate = rospy.Rate(0.6)
-            self.time_begin_ = self.time_now_
+            
             rate.sleep()
             self.navigating_queue_ = deque([])
             self.next_state_ = self.FlightState.DETECTING_TARGET
@@ -427,14 +445,14 @@ class ControllerNode:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
                     return
-                #if self.t_wu_[1] < 1.8:
-                   # if self.t_wu_[1] < 1.6:
-                   #     self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
-                    #else:
-                   #     self.publishCommand('forward %d' % int(25))
-                  #      rospy.logwarn('micro' )
-                  #  rospy.logwarn('forward' )
-                  #  return
+                if self.t_wu_[1] < 1.8:
+                    if self.t_wu_[1] < 1.5:
+                        self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
+                    else:
+                        self.publishCommand('forward %d' % int(30))
+                        rospy.logwarn('micro' )
+                    rospy.logwarn('forward' )
+                    return
                 
                 if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
                     self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
@@ -448,15 +466,18 @@ class ControllerNode:
                 if self.yaw_PID(1) == True:
                     self.BAll_flag += 1
                 
-                if self.t_wu_[1] <= 3.6:
-                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 3.6)))
-                    rospy.logwarn('forawrd' )
-                if self.t_wu_[1] > 3.6:
-                    self.BAll_flag += 1
+                #if self.t_wu_[1] <= 3.6:
+                    #self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 3.6)))
+                   # rospy.logwarn('forawrd' )
+               # if self.t_wu_[1] > 3.6:
+                 #   self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
                 if self.t_wu_[1] <= 3.6:
-                    self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.7)))
+                    if abs(100*(self.t_wu_[1] - 3.7)) <= 0.3:
+                        self.publishCommand('forward 30')
+                    else:
+                        self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.7)))
                     rospy.logwarn('forawrd' )
                 if self.t_wu_[1] > 3.6:
                     self.BAll_flag += 1
