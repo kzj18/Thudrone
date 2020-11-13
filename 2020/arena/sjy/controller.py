@@ -421,17 +421,17 @@ class ControllerNode:
                 if self.yaw_PID(1) == True:
                     self.BAll_flag += 1
                 
-                if self.t_wu_[1] <= 3.8:
-                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 4)))
+                if self.t_wu_[1] <= 3.5:
+                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 3.5)))
                     rospy.logwarn('forawrd' )
-                if self.t_wu_[1] > 3.8:
+                if self.t_wu_[1] > 3.5:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.t_wu_[1] <= 3.8:
-                    self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 4)))
+                if self.t_wu_[1] <= 3.5:
+                    self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.8)))
                     rospy.logwarn('forawrd' )
-                if self.t_wu_[1] > 3.8:
+                if self.t_wu_[1] > 3.5:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
