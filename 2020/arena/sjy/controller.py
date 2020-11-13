@@ -397,18 +397,23 @@ class ControllerNode:
                 if self.yaw_PID() == False:
                     return
                     
-                if self.t_wu_[2] > height + 0.2:
+                if self.t_wu_[2] > height + 0.1:
                     self.publishCommand('down %d' % int(alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('down' )
                     return
-                elif self.t_wu_[2] < height - 0.2:
+                elif self.t_wu_[2] < height - 0.3:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
                     return
                 if self.t_wu_[1] < 1.8:
-                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
+                    if self.t_wu_[1] < 1.6:
+                        self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
+                    else:
+                        self.publishCommand('forward %d' % int(25))
+                        rospy.logwarn('micro' )
                     rospy.logwarn('forward' )
                     return
+                
                 if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
                     self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                     rospy.logwarn('left' )
@@ -421,17 +426,17 @@ class ControllerNode:
                 if self.yaw_PID(1) == True:
                     self.BAll_flag += 1
                 
-                if self.t_wu_[1] <= 3.5:
-                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 3.5)))
+                if self.t_wu_[1] <= 3.6:
+                    self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 3.6)))
                     rospy.logwarn('forawrd' )
-                if self.t_wu_[1] > 3.5:
+                if self.t_wu_[1] > 3.6:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.t_wu_[1] <= 3.5:
-                    self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.8)))
+                if self.t_wu_[1] <= 3.6:
+                    self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.7)))
                     rospy.logwarn('forawrd' )
-                if self.t_wu_[1] > 3.5:
+                if self.t_wu_[1] > 3.6:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
