@@ -401,13 +401,7 @@ class ControllerNode:
                 self.publishCommand('right %d' % int(100*abs(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                 rospy.logwarn('adjust x')
                 return
-            elif self.t_wu_[2] > fire_height + 0.25:
-                self.publishCommand('down %d' % int(100*(self.t_wu_[2] - fire_height)))
-                rospy.logwarn('adjust z')
-                return
-            elif self.t_wu_[2] < fire_height - 0.25:
-                self.publishCommand('up %d' % int(-100*(self.t_wu_[2] - fire_height)))
-                rospy.logwarn('adjust z')
+            elif self.yaw_PID() == False:
                 return
             elif self.t_wu_[1] > 1.8:
                 self.publishCommand('back %d' % int(100*(self.t_wu_[1] - 1.5)))
@@ -417,7 +411,14 @@ class ControllerNode:
                 self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 1.5)))
                 rospy.logwarn('adjust y ')
                 return
-            elif self.yaw_PID() == False:
+            
+            elif self.t_wu_[2] > fire_height + 0.25:
+                self.publishCommand('down %d' % int(100*(self.t_wu_[2] - fire_height)))
+                rospy.logwarn('adjust z')
+                return
+            elif self.t_wu_[2] < fire_height - 0.25:
+                self.publishCommand('up %d' % int(-100*(self.t_wu_[2] - fire_height)))
+                rospy.logwarn('adjust z')
                 return
             elif self.detectTarget():
                 rospy.loginfo('Target detected.')
