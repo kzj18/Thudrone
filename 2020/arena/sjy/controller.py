@@ -431,7 +431,7 @@ class ControllerNode:
         elif self.flight_state_ == self.FlightState.WINDOW:
             rospy.logwarn('WINDOW' )
             if self.BAll_flag == 0:
-                rospy.logwarn('st0' )
+                rospy.logwarn('st0 up down' )
                 height = 0.8
                 alpha = 1.3
                 if self.yaw_PID() == False:
@@ -445,6 +445,9 @@ class ControllerNode:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
                     return
+                self.BAll_flag += 1
+            if self.BAll_flag == 1:
+                rospy.logwarn('st1 forward smally' )
                 if self.t_wu_[1] < 1.8:
                     if self.t_wu_[1] < 1.5:
                         self.publishCommand('forward %d' % int(-alpha*100*(self.t_wu_[1] - 1.8)))
@@ -453,7 +456,9 @@ class ControllerNode:
                         rospy.logwarn('micro' )
                     rospy.logwarn('forward' )
                     return
-                
+                self.BAll_flag += 1
+            if self.BAll_flag == 2:
+                rospy.logwarn('st2 micro control' )
                 if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
                     self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                     rospy.logwarn('left' )
@@ -471,8 +476,8 @@ class ControllerNode:
                    # rospy.logwarn('forawrd' )
                # if self.t_wu_[1] > 3.6:
                  #   self.BAll_flag += 1
-            if self.BAll_flag == 1:
-                rospy.logwarn('st1' )
+            if self.BAll_flag == 3:
+                rospy.logwarn('st3 rushB' )
                 if self.t_wu_[1] <= 3.6:
                     if abs(100*(self.t_wu_[1] - 3.7)) <= 0.3:
                         self.publishCommand('forward 30')
@@ -481,8 +486,8 @@ class ControllerNode:
                     rospy.logwarn('forawrd' )
                 if self.t_wu_[1] > 3.6:
                     self.BAll_flag += 1
-            if self.BAll_flag == 2:
-                rospy.logwarn('st2' )
+            if self.BAll_flag == 4:
+                rospy.logwarn('st4 PULL_UP' )
                 if self.PULL_UP() == True:
                     self.switch_state(self.FlightState.BALL1)
 
