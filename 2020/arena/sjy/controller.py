@@ -502,8 +502,8 @@ class ControllerNode:
                     rospy.logwarn('up' )
                     return
                 if self.t_wu_[1] <= 3.6:
-                    if abs(100*(self.t_wu_[1] - 3.7)) <= 0.3:
-                        self.publishCommand('forward 30')
+                    if abs(100*(self.t_wu_[1] - 3.7)) <= 0.4:
+                        self.publishCommand('forward 40')
                     else:
                         self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 3.7)))
                     rospy.logwarn('forawrd' )
@@ -615,12 +615,9 @@ class ControllerNode:
                 if self.PULL_UP() == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:     
-                rospy.logwarn('st1' )  
-                self.yaw_desired = -90
-                if self.yaw_PID() == True:
-                    self.publishResult(self.result)
-                    self.BAll_flag += 1
-                    self.detect_times = 0
+                self.publishResult(self.result)
+                self.BAll_flag += 1
+                self.detect_times = 0
             elif self.BAll_flag == 2:
                 rospy.logwarn('st2' )
                 #s = ''
@@ -628,8 +625,7 @@ class ControllerNode:
                  #   s += self.color_list[i][0]
                 #rospy.logwarn('%s'%s )
                 if self.fast_way == 1:
-                    self.navigating_queue_ = deque([[7, 14.5, 3.5, -135]])
-                    self.next_state_ = self.FlightState.NAVIGATING
+                    self.next_state_ = self.FlightState.FAST_LANDING
                     self.next_state_navigation = self.FlightState.FAST_LANDING
                     self.switchNavigatingState()
                     return
@@ -637,8 +633,10 @@ class ControllerNode:
                     self.publishCommand('land')
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.FAST_LANDING:
-            rospy.logwarn('FAST_LANDING' )
-            self.publishCommand('land')
+            if self.micro_control(7, 14.5, -1, 0) ==True:
+                    self.publishCommand('land')
+                    rospy.logwarn('FAST_LANDING' )
+            
 #**************************************************************************************************************************
         else:
             pass
