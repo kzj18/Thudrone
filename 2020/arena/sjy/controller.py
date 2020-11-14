@@ -411,7 +411,10 @@ class ControllerNode:
                 self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 1.5)))
                 rospy.logwarn('adjust y ')
                 return
-            
+            elif self.detectTarget():
+                rospy.loginfo('Target detected.')
+                self.navigating_queue_ = deque([])
+                self.switch_state(self.FlightState.WINDOW)
             elif self.t_wu_[2] > fire_height + 0.25:
                 self.publishCommand('down %d' % int(100*(self.t_wu_[2] - fire_height)))
                 rospy.logwarn('adjust z')
@@ -420,10 +423,7 @@ class ControllerNode:
                 self.publishCommand('up %d' % int(-100*(self.t_wu_[2] - fire_height)))
                 rospy.logwarn('adjust z')
                 return
-            elif self.detectTarget():
-                rospy.loginfo('Target detected.')
-                self.navigating_queue_ = deque([])
-                self.switch_state(self.FlightState.WINDOW)
+            
             else:
                 self.win_index += 1
             
@@ -482,6 +482,17 @@ class ControllerNode:
                  #   self.BAll_flag += 1
             if self.BAll_flag == 3:
                 rospy.logwarn('st3 rushB' )
+                
+                if self.yaw_PID(1) == False:
+                    return
+                if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
+                    self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
+                    rospy.logwarn('left' )
+                    return
+                elif self.t_wu_[0] < self.window_x_list_[self.win_index]-0.2:
+                    self.publishCommand('right %d' % int(-alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
+                    rospy.logwarn('right' )
+                    return
                 if self.t_wu_[2] > height + 0.2:
                     self.publishCommand('down %d' % int(alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('down' )
@@ -489,8 +500,6 @@ class ControllerNode:
                 elif self.t_wu_[2] < height - 0.2:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
-                    return
-                if self.yaw_PID(1) == False:
                     return
                 if self.t_wu_[1] <= 3.6:
                     if abs(100*(self.t_wu_[1] - 3.7)) <= 0.3:
@@ -619,7 +628,7 @@ class ControllerNode:
                  #   s += self.color_list[i][0]
                 #rospy.logwarn('%s'%s )
                 if self.fast_way == 1:
-                    self.navigating_queue_ = deque([[7, 14.5, 3.5, -90]])
+                    self.navigating_queue_ = deque([[7, 14.5, 3.5, -135]])
                     self.next_state_ = self.FlightState.NAVIGATING
                     self.next_state_navigation = self.FlightState.FAST_LANDING
                     self.switchNavigatingState()
