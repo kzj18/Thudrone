@@ -410,12 +410,12 @@ class ControllerNode:
                 rospy.logwarn('adjust z')
                 return
             elif self.t_wu_[1] > 1.8:
-                self.publishCommand('back %d' % int(80*(self.t_wu_[1] - 1.8)))
-                rospy.logwarn('adjust y under-relaxation')
+                self.publishCommand('back %d' % int(100*(self.t_wu_[1] - 1.5)))
+                rospy.logwarn('adjust y ')
                 return
             elif self.t_wu_[1] < 1:
-                self.publishCommand('forward %d' % int(-80*(self.t_wu_[1] - 1.8)))
-                rospy.logwarn('adjust y under-relaxation')
+                self.publishCommand('forward %d' % int(-100*(self.t_wu_[1] - 1.5)))
+                rospy.logwarn('adjust y ')
                 return
             elif self.yaw_PID() == False:
                 return
