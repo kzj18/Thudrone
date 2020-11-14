@@ -227,7 +227,7 @@ class ControllerNode:
         '''
         phi can only == 0 90 -90 179 -179
         '''
-        if self.yaw_PID == False:
+        if self.yaw_PID() == False:
             return False
         rospy.logwarn('micro_controlling (0^0)')
         if phi == 90:
@@ -462,16 +462,17 @@ class ControllerNode:
             if self.BAll_flag == 2:
                 
                 rospy.logwarn('st2 micro control' )
-                if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
-                    self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
-                    rospy.logwarn('left' )
-                    return
-                elif self.t_wu_[0] < self.window_x_list_[self.win_index]-0.2:
-                    self.publishCommand('right %d' % int(-alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
-                    rospy.logwarn('right' )
-                    return
+                
                 self.yaw_desired = 90
-                if self.yaw_PID(1) == True:
+                if self.yaw_PID() == True:
+                    if self.t_wu_[0] > self.window_x_list_[self.win_index]+0.2:
+                        self.publishCommand('left %d' % int(alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
+                        rospy.logwarn('left' )
+                        return
+                    elif self.t_wu_[0] < self.window_x_list_[self.win_index]-0.2:
+                        self.publishCommand('right %d' % int(-alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
+                        rospy.logwarn('right' )
+                        ssreturn
                     self.BAll_flag += 1
                 
                 #if self.t_wu_[1] <= 3.6:
@@ -488,6 +489,8 @@ class ControllerNode:
                 elif self.t_wu_[2] < height - 0.2:
                     self.publishCommand('up %d' % int(-alpha*100*(self.t_wu_[2] - height)))
                     rospy.logwarn('up' )
+                    return
+                if self.yaw_PID(1) == False:
                     return
                 if self.t_wu_[1] <= 3.6:
                     if abs(100*(self.t_wu_[1] - 3.7)) <= 0.3:
