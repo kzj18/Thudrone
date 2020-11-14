@@ -472,7 +472,7 @@ class ControllerNode:
                     elif self.t_wu_[0] < self.window_x_list_[self.win_index]-0.2:
                         self.publishCommand('right %d' % int(-alpha*100*(self.t_wu_[0] - self.window_x_list_[self.win_index])))
                         rospy.logwarn('right' )
-                        ssreturn
+                        return
                     self.BAll_flag += 1
                 
                 #if self.t_wu_[1] <= 3.6:
