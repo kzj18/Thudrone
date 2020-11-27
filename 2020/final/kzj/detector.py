@@ -13,7 +13,7 @@ img_file = os.path.abspath('').replace('/', '//') + '//data'
 #record_data = '//home//kzj18//Pictures//data//record'
 record_data = os.path.abspath('').replace('/', '//') + '//data//record'
 COLOR_RANGE = {
-    'r': [(0, 43, 46), (6, 255, 255)],
+    'r': [(0, 100, 72), (10, 255, 255)],
     'y': [(26, 43, 46), (34, 255, 255)],
     'b': [(100, 43, 46), (124, 255, 255)]
 }
@@ -25,8 +25,8 @@ def detectFire(image, color='r', record_mode = False):
     width = image.shape[1]
     image_copy = image.copy()
     gray_image = cv2.cvtColor(image_copy, cv2.COLOR_BGRA2GRAY)
-    closed = get_mask(image_copy, COLOR_RANGE, color, 'fire')
-    gray_image = cv2.bitwise_and(gray_image, gray_image, mask=closed)
+    opened = get_mask(image_copy, COLOR_RANGE, color, 'fire')
+    gray_image = cv2.bitwise_and(gray_image, gray_image, mask=opened)
     circles = cv2.HoughCircles(
         gray_image,
         cv2.HOUGH_GRADIENT,
@@ -159,7 +159,7 @@ def get_mask(image, color_range, color, task):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)  # 将图片转换到HSV空间
 
     frame = cv2.inRange(frame, color_range[color][0], color_range[color][1])  # 对原图像和掩模进行位运算
-    kernal = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
     closed = cv2.morphologyEx(frame, cv2.MORPH_CLOSE, kernel)  # 闭运算
     opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)  # 开运算
     if test_mode:
@@ -167,7 +167,7 @@ def get_mask(image, color_range, color, task):
         savepic(img_file, name + 'frame', frame)
         savepic(img_file, name + 'opened', opened)
         savepic(img_file, name + 'closed', closed)
-    return closed
+    return opened
 
 def savepic(folder_name, file_name, pic):
     current = time.strftime('%b_%d_%Y_%H_%M_%S')
@@ -193,10 +193,16 @@ def info():
     print(record_data)
 
 if __name__ == '__main__':
+    '''
     test_mode = bool(input('mode:'))
     ball = cv2.imread('//home//kzj18//Pictures//ball_env.jpeg', cv2.IMREAD_UNCHANGED)
     result = detectFire(ball)
     print(result)
     result = detectBall(ball)
     print(result)
-    
+    '''
+    name = input('index:')
+    name = '//home//kzj18//divide_color//data//' + str(name) + '.png'
+    fire = cv2.imread(name)
+    detectFire(fire)
+    cv2.destroyAllWindows()
