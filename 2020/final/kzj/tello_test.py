@@ -15,6 +15,7 @@ from sensor_msgs.msg import Image
 sys.path.remove('/opt/ros/melodic/lib/python2.7/dist-packages')
 import cv2
 import tello_base as tello
+import detector
 
 y_max_th = 200
 y_min_th = 170
@@ -107,7 +108,7 @@ def parse_state():
     global tello_state, tello_state_lock
     tello_state_lock.acquire()
     statestr = tello_state.split(';')
-    print (statestr)
+    print(statestr)
     dict={}
     for item in statestr:
         if 'mid:' in item:
@@ -139,12 +140,22 @@ def parse_state():
     tello_state_lock.release()
     return dict
 
-def showimg():
-    global img, img_lock
-    img_lock.acquire()
-    cv2.imshow("tello_image", img)
-    cv2.waitKey(2)
-    img_lock.release()
+def showimg(save_file=False):
+    global img, img_lock, tello_state
+    if not img is None:
+        img_lock.acquire()
+        img_copy = img.copy()
+        if not tello_state == None:
+            rect = img_copy.copy()
+            rect = rect[0:40, 0:rect.shape[1]]
+            cv2.rectangle(rect, (0, 0), (img_copy.shape[1], 40), (255, 255, 255), -1)
+            cv2.putText(rect, tello_state, (0, 25), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 0, 0), 2)
+            img_copy = np.vstack([rect, img_copy])
+        cv2.imshow("tello_image", img_copy)
+        cv2.waitKey(2)
+        if save_file:
+            detector.recordpic(detector.img_file, 'original', img_copy)
+        img_lock.release()
 
 # mini task: take off and fly to the center of the blanket.
 class task_handle():
@@ -158,9 +169,11 @@ class task_handle():
         self.ctrl = ctrl
         self.now_stage = self.taskstages.finding_location
 
-    def test(self):
+    def test(self, save_file=False):
         while not rospy.is_shutdown():
             self.States_Dict = parse_state()
+            #showimg(save_file=save_file)
+            time.sleep(0.2)
 
     def main(self): # main function: examine whether tello finish the task
         while not (self.now_stage == self.taskstages.finished):
@@ -235,11 +248,14 @@ if __name__ == '__main__':
     ctrl = control_handler(control_pub)
     infouper = info_updater()
     tasker = task_handle(ctrl)
-    
-    time.sleep(2)
     ctrl.mon()
-    time.sleep(5)
-    tasker.test()
+    '''
+    time.sleep(2)
+    ctrl.takeoff()
+    time.sleep(2)
+    ctrl.land()
+    '''
+    tasker.test(save_file=True)
 
     
 

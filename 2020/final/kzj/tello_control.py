@@ -29,7 +29,7 @@ img = None
 tello_state='mid:-1;x:100;y:100;z:-170;mpry:1,180,1;pitch:0;roll:0;yaw:-19;'
 state_mid = -1
 t_wu = np.zeros(3)
-R_wu = R.from_quat([0, 0, 0, 1])
+yaw = 0
 tello_state_lock = threading.Lock()
 img_lock = threading.Lock()
 camera_properties = {
@@ -45,7 +45,7 @@ class info_updater():
         self.con_thread.start()
 
     def update_state(self,data):
-        global tello_state, tello_state_lock, t_wu, R_wu, state_mid
+        global tello_state, tello_state_lock, t_wu, yaw, state_mid
         tello_state_lock.acquire() #thread locker
         tello_state = data.data
         statestr = tello_state.split(';')
@@ -66,12 +66,11 @@ class info_updater():
                 y = int(item.split(':')[-1])
                 t_wu[1] = y/100
             elif 'pitch:' in item:
-                pitch = int(item.split(':')[-1])
+                pass
             elif 'roll:' in item:
-                roll = int(item.split(':')[-1])
+                pass
             elif 'yaw:' in item:
                 yaw = int(item.split(':')[-1])
-        R_wu = (R.from_euler('zyx', [yaw, pitch, roll], degrees=True)).as_quat()
         tello_state_lock.release()
 
     def update_img(self,data):
@@ -81,7 +80,7 @@ class info_updater():
         img_lock.release()
 
 class ControllerNode:
-    global img, t_wu, R_wu, state_mid
+    global img, t_wu, yaw, state_mid
     class FlightState(Enum):  # 飞行状态
         WAITING = 1
         NAVIGATING = 2
@@ -138,7 +137,7 @@ class ControllerNode:
     
     def test(self):
         print(t_wu)
-        print(R_wu)
+        print(yaw)
         if not img is None:
             cv2.imshow('tello_picture', img)
             cv2.waitKey(2)
@@ -152,7 +151,6 @@ class ControllerNode:
             self.navigating_yaw_accuracy = 10
         else:
             self.navigating_yaw_accuracy = 15
-        (yaw, pitch, roll) = R_wu.as_euler('zyx', degrees=True)
         yaw_diff = yaw - self.yaw_desired
         if yaw_diff > 180:
             yaw_diff = 360 - yaw_diff
