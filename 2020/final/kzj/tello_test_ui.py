@@ -1,14 +1,23 @@
 #!/usr/bin/python
 #-*- encoding: utf8 -*-
 
+import threading
 from PySide2.QtWidgets import QApplication
 from PySide2.QtUiTools import QUiLoader
 from os import path
 import rospy
 import detector
+import cv2
+from sensor_msgs.msg import Image
+from std_msgs.msg import String
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
 
 file_path = path.dirname(__file__)
 file_path = file_path.replace('/', '//')
+tello_state_lock = threading.Lock()
+img_lock = threading.Lock()
+t_wu = np.zeros(3)
 
 class info_updater():   
     def __init__(self):
@@ -18,7 +27,7 @@ class info_updater():
         self.con_thread.start()
 
     def update_state(self,data):
-        global tello_state, tello_state_lock, t_wu, R_wu
+        global tello_state, tello_state_lock, t_wu, yaw
         tello_state_lock.acquire() #thread locker
         tello_state = data.data
         statestr = tello_state.split(';')
@@ -39,14 +48,11 @@ class info_updater():
                 y = int(item.split(':')[-1])
                 t_wu[1] = y
             elif 'pitch:' in item:
-                pitch = int(item.split(':')[-1])
+                pass
             elif 'roll:' in item:
-                roll = int(item.split(':')[-1])
+                pass
             elif 'yaw:' in item:
                 yaw = int(item.split(':')[-1])
-        R_wu = (R.from_euler('zyx', [yaw, pitch, roll], degrees=True)).as_quat()
-        #print(t_wu)
-        #print(R_wu)
         tello_state_lock.release()
 
     def update_img(self,data):
@@ -59,7 +65,7 @@ class main_exe:
     global img
 
     def __init__(self):
-        self.commandPub_ = rospy.Publisher('tello_control', String, queue_size=1)  # 发布tello格式控制信号
+        self.commandPub_ = rospy.Publisher('command', String, queue_size=1)  # 发布tello格式控制信号
 
         # PyCharm路径
         self.ui = QUiLoader().load(file_path + '//tello.ui')
@@ -71,19 +77,21 @@ class main_exe:
         self.ui.land.clicked.connect(self.land)
         self.ui.save.clicked.connect(self.save)
 
-        self.ui.forward.clicked.connect()
-        self.ui.back.clicked.connect()
-        self.ui.left.clicked.connect()
-        self.ui.right.clicked.connect()
-        self.ui.up.clicked.connect()
-        self.ui.down.clicked.connect()
+        self.ui.forward.clicked.connect(self.forward)
+        self.ui.back.clicked.connect(self.back)
+        self.ui.left.clicked.connect(self.left)
+        self.ui.right.clicked.connect(self.right)
+        self.ui.up.clicked.connect(self.up)
+        self.ui.down.clicked.connect(self.down)
+        self.ui.cw.clicked.connect(self.cw)
+        self.ui.ccw.clicked.connect(self.ccw)
 
-        self.ui.command_1.clicked.connect()
-        self.ui.command_2.clicked.connect()
-        self.ui.command_3.clicked.connect()
-        self.ui.command_4.clicked.connect()
-        self.ui.command_5.clicked.connect()
-        self.ui.command_6.clicked.connect()
+        self.ui.command_1.clicked.connect(self.command_1)
+        self.ui.command_2.clicked.connect(self.command_2)
+        self.ui.command_3.clicked.connect(self.command_3)
+        self.ui.command_4.clicked.connect(self.command_4)
+        self.ui.command_5.clicked.connect(self.command_5)
+        self.ui.command_6.clicked.connect(self.command_6)
         
     def forward(self):
         cm = self.ui.forward_cm.text()
@@ -165,13 +173,14 @@ class main_exe:
 
     def save(self):
         if img is not None:
-			img_copy = img.copy()
-			rect = img.copy()
-			rect = rect[0:40, 0:rect.shape[1]]
-			cv2.rectangle(rect, (0, 0), (img_copy.shape[1], 40), (255, 255, 255), -1)
-			cv2.putText(rect, tello_state, (0, 25), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 0, 0), 2)
-			img_copy = np.vstack([rect, img_copy])
-            detector.recordpic(file_path, 'original', img_copy)
+            img_copy = img.copy()
+            rect = img.copy()
+            rect = rect[0:40, 0:rect.shape[1]]
+            cv2.rectangle(rect, (0, 0), (img_copy.shape[1], 40), (255, 255, 255), -1)
+            cv2.putText(rect, tello_state, (0, 25), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 0, 0), 2)
+            img_copy = np.vstack([rect, img_copy])
+            detector.recordpic(file_path + '//data', 'original', img_copy)
+        return
         
     # 向相关topic发布tello命令
     def publishCommand(self, command_str):

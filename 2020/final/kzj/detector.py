@@ -152,16 +152,16 @@ def get_mask(image, color_range, color, task):
     height = image.shape[0]
     width = image.shape[1]
 
-    frame = cv2.resize(image, (width, height), interpolation=cv2.INTER_CUBIC)  # 将图片缩放
-    frame = cv2.GaussianBlur(frame, (3, 3), 0)  # 高斯模糊
+    frame = image.copy()
+
+    frame = cv2.resize(frame, (width, height), cv2.INTER_LINEAR)  # 将图片缩放
+    frame = cv2.GaussianBlur(frame, (7, 7), 0)  # 高斯模糊
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)  # 将图片转换到HSV空间
-    h, s, v = cv2.split(frame)  # 分离出各个HSV通道
-    v = cv2.equalizeHist(v)  # 直方图化
-    frame = cv2.merge((h, s, v))  # 合并三个通道
 
     frame = cv2.inRange(frame, color_range[color][0], color_range[color][1])  # 对原图像和掩模进行位运算
-    opened = cv2.morphologyEx(frame, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))  # 开运算
-    closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # 闭运算
+    kernal = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    closed = cv2.morphologyEx(frame, cv2.MORPH_CLOSE, kernel)  # 闭运算
+    opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)  # 开运算
     if test_mode:
         savepic(img_file, name + 'original', image)
         savepic(img_file, name + 'frame', frame)
