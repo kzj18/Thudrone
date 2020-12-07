@@ -174,6 +174,9 @@ class Tello:
         :return (str): Response from Tello.
 
         """
+        except_command = ['rc', 'go']
+        command_head = command.split(' ')[0]
+
         self.log.append(Stats(command, len(self.log)))
         print(">> send cmd: {}".format(command))
         print(len(self.log),self.log[-1].got_response())
@@ -183,25 +186,36 @@ class Tello:
         start = time.time()
         #print(self.log[-1].got_response())
         timelen = 0.
-        while True:
-            if not self.log[-1].got_response():
-                continue
-            elif (not self.last) and('ok' in str(self.log[-1].got_response())):
-                break
-            elif ('ok' in str(self.last)) and('ok' in str(self.log[-1].got_response())):
-                self.last = self.log[-1].got_response()
-                continue
-            elif 'ok' not in str(self.log[-1].got_response()):
-                now = time.time()
-                diff = now - start
-                if diff > timelen:
-                    print(self.log[-1].got_response())
-                    timelen += 1.
-                    self.socket.sendto(command.encode('utf-8'), self.tello_address)
-                #print(len(self.log))
-                if diff > self.MAX_TIME_OUT:
-                    print ('Max timeout exceeded... command %s' % command)  
-                    raise Exception('command timeout')
+        if command_head in except_command:
+            pass
+        else:
+            while True:
+                '''
+                print('last:' + str(self.last))
+                print('now' + str(self.log[-1].got_response()))
+                '''
+                if not self.log[-1].got_response():
+                    # print('response is none')
+                    continue
+                elif (not self.last) and('ok' in str(self.log[-1].got_response())):
+                    break
+                # elif ('ok' in str(self.last)) and ('ok' in str(self.log[-1].got_response())):
+                elif ('ok' in str(self.last)) and (self.log[-1].got_response is None):
+                    self.last = self.log[-1].got_response()
+                    # print('last is none')
+                    continue
+                elif 'ok' not in str(self.log[-1].got_response()):
+                    print('may be error:' + str(self.log[-1].got_response()))
+                    now = time.time()
+                    diff = now - start
+                    if diff > timelen:
+                        print('response: ' + str(self.log[-1].got_response()))
+                        timelen += 1.
+                        self.socket.sendto(command.encode('utf-8'), self.tello_address)
+                    #print(len(self.log))
+                    if diff > self.MAX_TIME_OUT:
+                        print ('Max timeout exceeded... command %s' % command)  
+                        raise Exception('command timeout')
             
         print ('Done!!! sent command: %s to %s' % (command, self.tello_ip))
         print (self.log[-1].got_response())
