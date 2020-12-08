@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>715</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -46,6 +46,9 @@
            <string>保存图片</string>
           </property>
          </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="box_num"/>
         </item>
        </layout>
       </item>
@@ -209,7 +212,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="command_str_1"/>
+           <widget class="QLineEdit" name="command_str_1">
+            <property name="text">
+             <string>rc 0 0 0 0</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -223,7 +230,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="command_str_2"/>
+           <widget class="QLineEdit" name="command_str_2">
+            <property name="text">
+             <string>rc 0 20 0 0</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -237,7 +248,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="command_str_3"/>
+           <widget class="QLineEdit" name="command_str_3">
+            <property name="text">
+             <string>rc 0 0 20 0</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -251,7 +266,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QLineEdit" name="command_str_4"/>
+           <widget class="QLineEdit" name="command_str_4">
+            <property name="text">
+             <string>rc 0 -20 0 0</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>

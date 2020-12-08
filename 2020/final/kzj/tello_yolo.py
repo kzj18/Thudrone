@@ -12,44 +12,36 @@ import cv2
 import detector
 import time
 
-# print(os.path.dirname(__file__))
-# output: /home/kzj18/catkin_ws/src/tello_control
+python_file = os.path.dirname(__file__)
+data_path = python_file + '/data/dataset/'
+save_path = python_file + '/data/trash_yolo/' + time.strftime('%b_%d_%Y_%H_%M_%S/')
 
-img = None
 yolo_command = ''
-img_lock = threading.Lock()
 yolo_command_lock = threading.Lock()
 
 names = ['basketball', 'football', 'volleyball', 'balloon']
 
 class info_updater():
     def __init__(self):
-        rospy.Subscriber("tello_picture", Image, self.update_img)
         rospy.Subscriber("yolo_command", String, self.update_command)
         self.con_thread = threading.Thread(target = rospy.spin)
         self.con_thread.start()
 
-    def update_img(self,data):
-        global img, img_lock
-        img_lock.acquire()#thread locker
-        img = CvBridge().imgmsg_to_cv2(data, desired_encoding = "passthrough")
-        img_lock.release()
-
-    def update_command(self,data):
+    def update_command(self, data):
         global yolo_command, yolo_command_lock
         yolo_command_lock.acquire() #thread locker
         yolo_command = data.data
         yolo_command_lock.release()
 
 class PictureNode:
-    global img, yolo_command
+    global yolo_command
 
     def __init__(self):
         self.answerPub_ = rospy.Publisher('yolo_state', String, queue_size=1)
 
         self.counter = 0
         self.current_image = None
-        self.last_command = '0'
+        self.last_command = ''
         self.now_command = ''
         self.yolo_callback = ''
 
@@ -57,20 +49,31 @@ class PictureNode:
             self.now_command = yolo_command
             if self.counter == 0:
                 self.publishCommand('start')
-            if (not img is None) and (not self.last_command == self.now_command):
-                self.last_command = self.now_command
-                self.counter += 1
-                result = detector.detectBall(img, self.counter)
-                if not result == []:
-                    answer = max(result, lambda x: x[0])
-                    self.yolo_callback = str(answer[0]) + '_' + str(self.counter)
+            if not self.last_command == self.now_command:
+                pic_path = data_path + self.now_command + '.png'
+                if os.path.exists(pic_path):
+                    img = cv2.imread(pic_path)
+                    if os.path.exists(pic_path):
+                        os.remove(pic_path)
+                        img_copy = copy.deepcopy(img)
+                        if not os.path.exists(save_path):
+                            os.makedirs(save_path)
+                        cv2.imwrite(save_path + self.now_command + '.png', img_copy)
+                    self.last_command = self.now_command
+                    self.counter += 1
+                    result = detector.detectBall(img, self.counter)
+                    if not result == []:
+                        answer = max(result, key=lambda x: x[0])
+                        self.yolo_callback = str(int(answer[0])) + '_' + str(self.counter)
+                    else:
+                        self.yolo_callback = '4_' + str(self.counter)
+                    rospy.logwarn('command: ' + self.yolo_callback)
                 else:
-                    self.yolo_callback = '4_' + str(self.counter)
-                print('command: ' + self.yolo_callback)
+                    rospy.logwarn('path not exists: ' + pic_path)
             else:
                 if not self.yolo_callback == '':
                     self.publishCommand(self.yolo_callback)
-                print('require new picture')
+                rospy.logwarn('require new picture')
 
     def publishCommand(self, command_str):
         msg = String()
@@ -78,7 +81,6 @@ class PictureNode:
         self.answerPub_.publish(msg)
         rate = rospy.Rate(0.3)
         rate.sleep()
-
 
 if __name__ == "__main__":
     rospy.init_node('tello_yolo', anonymous=True)

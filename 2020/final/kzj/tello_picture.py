@@ -13,6 +13,7 @@ import time
 import cv2
 
 python_file = os.path.dirname(__file__)
+data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/detect_results/'
 
 picture_command = ''
@@ -52,16 +53,15 @@ class PictureNode:
     global img, picture_command, yolo_callback
 
     def __init__(self):
-        self.img_pub = rospy.Publisher('tello_picture', Image, queue_size=5)
         self.commandPub_ = rospy.Publisher('yolo_command', String, queue_size=1)
-        self.image_list = [[], [], [], [], []]
+        self.image_list = []
         self.result_list = []
         self.last_state = {
             'picture_command': copy.deepcopy(picture_command),
             'yolo_callback': copy.deepcopy(yolo_callback)
         }
         self.current_state = copy.deepcopy(self.last_state)
-        self.last_answer = None
+        self.last_answer = ''
         self.answer = [
             '0n',
             '0n',
@@ -71,8 +71,12 @@ class PictureNode:
         ]
         self.communicate_start = False
         self.counter = 0
+        self.send_times = 0
+        self.change_times = 0
         self.command = ''
         start = time.time()
+        for picture in os.listdir(data_path):
+            os.remove(data_path + picture)
         while not rospy.is_shutdown():
             now = time.time()
             self.last_state = copy.deepcopy(self.current_state)
@@ -80,52 +84,46 @@ class PictureNode:
             self.current_state['yolo_callback'] = copy.deepcopy(yolo_callback)
             if now - start > 1:
                 start = time.time()
-                print(self.current_state)
+                rospy.logwarn('the result is: ' + str(self.result_list))
 
             if not self.current_state['picture_command'] == self.last_state['picture_command']:
                 command = self.current_state['picture_command'].split('_')[0]
-                if command in ['1', '2', '3', '4', '5']:
+                if command in ['1', '2', '3', '4', '5'] and not img is None:
                     img_copy = copy.deepcopy(img)
-                    self.image_list[int(command)-1].append(img_copy)
+                    self.counter += 1
+                    while len(self.result_list) < self.counter:
+                        self.result_list.append([-1, -1])
+                    self.result_list[self.counter - 1][0] = int(command)
+                    cv2.imwrite(data_path + '%s_%d.png'%(command, self.counter), img_copy)
                     rospy.logwarn('get image ' + self.current_state['picture_command'])
-                elif command is 'end':
+                elif command == 'end':
                     self.send_result()
+                    rospy.logwarn('end')
 
+            self.image_list = os.listdir(python_file + '/data/dataset')
             if self.current_state['yolo_callback'] == 'start':
-                for index, box in enumerate(self.image_list):
-                    if not len(box) == 0:
-                        self.counter += 1
-                        self.command = str(self.counter)
-                        time.sleep(0.1)
-                        self.send_image(box[0])
-                        self.last_answer = index
-                        self.image_list[index].pop(0)
-                        while len(self.result_list) < self.counter:
-                            self.result_list.append([-1, -1])
-                        self.result_list[self.counter - 1][0] = int(index)
-                        self.communicate_start = True
-                        rospy.logwarn('send image %d from box %d'%(self.counter, index))
+                if not len(self.image_list) == 0:
+                    self.last_answer = self.image_list[0].split('_')[0]
+                    self.command = self.image_list[0].split('.')[0]
+                    self.communicate_start = True
+                    rospy.logwarn('send image %d from box %s'%(self.counter, self.last_answer))
+
             elif (not self.current_state['yolo_callback'] == self.last_state['yolo_callback']) and self.communicate_start:
+                self.change_times += 1
+                rospy.logwarn('change times: %d, current state: %s, last state: %s'%(self.change_times, self.current_state['yolo_callback'], self.last_state['yolo_callback']))
+            elif self.send_times < self.change_times:
                 answer = self.current_state['yolo_callback'].split('_')[0]
-                yolo_counter = self.current_state['yolo_callback'].split('_')[1]
+                yolo_counter = int(self.current_state['yolo_callback'].split('_')[1])
                 while len(self.result_list) < yolo_counter:
                     self.result_list.append([-1, -1])
                 self.result_list[yolo_counter - 1][1] = int(answer)
-                rospy.logwarn('finish image %d from box %d, the answer is %s'%(self.counter, self.last_answer, answer))
-                for index, box in enumerate(self.image_list):
-                    if not len(box) == 0:
-                        self.counter += 1
-                        self.command = str(self.counter)
-                        time.sleep(0.1)
-                        self.send_image(box[0])
-                        self.last_answer = index
-                        self.image_list[index].pop(0)
-                        while len(self.result_list) < self.counter:
-                            self.result_list.append([-1, -1])
-                        self.result_list[self.counter - 1][0] = int(index)
-                        rospy.logwarn('send image %d from box %d'%(self.counter, index))
-                else:
-                    print('callback error')
+                rospy.logwarn('finish image %d from box %s, the answer is %s'%(self.counter, self.last_answer, answer))
+
+                if not len(self.image_list) == 0:
+                    self.last_answer = self.image_list[0].split('_')[0]
+                    self.command = self.image_list[0].split('.')[0]
+                    self.send_times += 1
+                    rospy.logwarn('send image %d from box %s, send times is %d'%(self.counter, self.last_answer, self.send_times))
 
             if not self.command == '':
                 self.publishCommand(self.command)
@@ -133,17 +131,10 @@ class PictureNode:
     def send_result(self):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        np.savetxt(save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt', self.result_list, fmt='%d')
-
-    def send_image(self, image):
-        if not image is None:
-            try:
-                img_msg = CvBridge().cv2_to_imgmsg(image, 'bgr8')
-                img_msg.header.frame_id = rospy.get_namespace()
-            except CvBridgeError as err:
-                rospy.logerr('fgrab: cv bridge failed - %s' % str(err))
-                return
-            self.img_pub.publish(img_msg)
+        rospy.logwarn('the result is: ' + str(self.result_list))
+        txt_path = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
+        rospy.logwarn('result was saved to' + txt_path)
+        np.savetxt(txt_path, self.result_list, fmt='%d')
             
     def publishCommand(self, command_str):
         msg = String()

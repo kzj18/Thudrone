@@ -4,6 +4,7 @@
 import threading
 from PySide2.QtWidgets import QApplication
 from PySide2.QtUiTools import QUiLoader
+from PySide2 import QtCore
 from os import path
 import rospy
 import detector
@@ -22,7 +23,9 @@ t_wu = np.zeros(3)
 class info_updater():   
     def __init__(self):
         rospy.Subscriber("tello_state", String, self.update_state)
+        '''
         rospy.Subscriber("tello_image", Image, self.update_img)
+        '''
         self.con_thread = threading.Thread(target = rospy.spin)
         self.con_thread.start()
 
@@ -55,22 +58,26 @@ class info_updater():
                 yaw = int(item.split(':')[-1])
         tello_state_lock.release()
 
+'''
     def update_img(self,data):
         global img, img_lock
         img_lock.acquire()#thread locker
         img = CvBridge().imgmsg_to_cv2(data, desired_encoding = "passthrough")
         img_lock.release()
+'''
 
 class main_exe:
-    global img
 
     def __init__(self):
         self.commandPub_ = rospy.Publisher('command', String, queue_size=1)  # 发布tello格式控制信号
+        self.imgcommandPub_ = rospy.Publisher('picture_command', String, queue_size=1)
 
         # PyCharm路径
         self.ui = QUiLoader().load(file_path + '//tello.ui')
         # cmd以及打包路径
         # self.ui = QUiLoader().load('tello.ui')
+
+        self.picture_counter = 0
 
         self.ui.mon.clicked.connect(self.mon)
         self.ui.takeoff.clicked.connect(self.takeoff)
@@ -172,6 +179,7 @@ class main_exe:
         self.publishCommand(command)
 
     def save(self):
+        '''
         if img is not None:
             img_copy = img.copy()
             rect = img.copy()
@@ -181,6 +189,11 @@ class main_exe:
             img_copy = np.vstack([rect, img_copy])
             detector.recordpic(file_path + '//data', 'original', img_copy)
         return
+        '''
+        available_command = ['1', '2', '3', '4', '5', 'end']
+        command = self.ui.box_num.text()
+        if command in available_command:
+            self.publishImageCommand(command)
         
     # 向相关topic发布tello命令
     def publishCommand(self, command_str):
@@ -190,7 +203,17 @@ class main_exe:
         rate = rospy.Rate(0.3)
         rate.sleep()
 
+    def publishImageCommand(self, command_str):
+        self.picture_counter += 1
+        msg = String()
+        msg.data = command_str + '_' + str(self.picture_counter)
+        print('command sent: ' + command_str)
+        self.imgcommandPub_.publish(msg)
+        rate = rospy.Rate(0.3)
+        rate.sleep()
+
 if __name__ == "__main__":
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     rospy.init_node('tello_control', anonymous=True)
     infouper = info_updater()
     # app = QApplication(sys.argv)
