@@ -4,6 +4,8 @@ import time
 import numpy as np
 import libh264decoder
 from stats import Stats
+import rospy
+from std_msgs.msg import String, Bool
 
 class Tello:
     """Wrapper class to interact with the Tello drone."""
@@ -21,6 +23,9 @@ class Tello:
         :param tello_ip (str): Tello IP.
         :param tello_port (int): Tello port.
         """
+        rospy.init_node('tello_state', anonymous=True)
+        self.OKPub_ =  rospy.Publisher('OK', String, queue_size=1)
+        self.counter = 0
         self.last = False
         self.command = ""  #for debug
 
@@ -175,6 +180,7 @@ class Tello:
 
         """
         except_command = ['rc', 'go']
+        #except_command = ['rc']
         command_head = command.split(' ')[0]
 
         self.log.append(Stats(command, len(self.log)))
@@ -198,6 +204,8 @@ class Tello:
                     # print('response is none')
                     continue
                 elif (not self.last) and('ok' in str(self.log[-1].got_response())):
+                    self.counter += 1
+                    self.publishOK()
                     break
                 # elif ('ok' in str(self.last)) and ('ok' in str(self.log[-1].got_response())):
                 elif ('ok' in str(self.last)) and (self.log[-1].got_response is None):
@@ -518,3 +526,8 @@ class Tello:
         """
 
         return self.move('up', distance)
+
+    def publishOK(self):
+        msg = String()
+        msg.data = 'OK_' + str(self.counter)
+        self.publishOK(msg)

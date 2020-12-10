@@ -36,7 +36,6 @@ def control():
 
 if __name__ == '__main__':
 	drone = tello.Tello('', 8888)
-	rospy.init_node('tello_state', anonymous=True)
 
 	state_pub = rospy.Publisher('tello_state',String, queue_size=3)
 	img_pub = rospy.Publisher('tello_image', Image, queue_size=5)

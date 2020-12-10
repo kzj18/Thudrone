@@ -36,8 +36,11 @@ tello_state='mid:-1;x:100;y:100;z:-170;mpry:1,180,1;pitch:0;roll:0;yaw:-19;'
 state_mid = -1
 t_wu = np.zeros(3)
 r_wu = np.zeros(3)
+OK = ''
+last_OK = 'false'
 tello_state_lock = threading.Lock()
 img_lock = threading.Lock()
+OK_lock = threading.Lock()
 camera_properties = {
     'height': 720,
     'width': 960
@@ -47,6 +50,7 @@ class info_updater():
     def __init__(self):
         rospy.Subscriber("tello_state", String, self.update_state)
         rospy.Subscriber("tello_image", Image, self.update_img)
+        rospy.Subscriber('OK', String, self.update_OK)
         self.con_thread = threading.Thread(target = rospy.spin)
         self.con_thread.start()
 
@@ -84,6 +88,16 @@ class info_updater():
         img_lock.acquire()#thread locker
         img = CvBridge().imgmsg_to_cv2(data, desired_encoding = "passthrough")
         img_lock.release()
+    
+    def update_OK(self, data):
+        global OK, OK_lock
+        OK_lock.acquire()
+        #Ok = data.data
+        OK = data.data
+        OK_lock.release()
+    
+    
+
 
 class ControllerNode:
     global img, t_wu, r_wu, state_mid
@@ -133,11 +147,17 @@ class ControllerNode:
         self.speed_flag = 0
         self.go_flag = 1
         while not rospy.is_shutdown():
-            print(1)
+            #print(1)
             self.decision()
         rospy.logwarn('Controller node shut down.')
     
-
+    def get_ok(self):
+        global OK, last_OK
+        if OK != last_OK:
+            last_OK = OK
+            return True
+        else:
+            return False
     def yaw_PID(self, yaw_desired, accuracy = 0):
         '''
         yaw control 
@@ -480,7 +500,7 @@ class ControllerNode:
                 rospy.logwarn('angle %f'%yaw_desired)
                 if self.yaw_PID(yaw_desired) == True:
                     if dh < acc*math.sqrt(3)*5 and (phi == 0 or phi == 90 or phi == -90 or phi == 179 or phi == -179 or phi == 180):
-                        self.micro_control(xx, yy, -11, yaw_desired)
+                        self.micro_control(xx, yy, -11, phi)
                     else:
                         if dh > 1.5:
                             sleep = 0.2
@@ -528,6 +548,8 @@ class ControllerNode:
         self.flight_state_ = next_stage
         #self.switchNavigatingState()
         self.BAll_flag = 0
+
+    '''
     def go(self,x,y,z,speed,phi):
         (x_now, y_now, z_now) = t_wu
         dx = x - x_now
@@ -548,24 +570,53 @@ class ControllerNode:
                     self.go_flag = 1
                     return True
         return False
-        
+    '''
+    def go(self, x, y, z, speed=100, acc = 0):
+        if acc == 0:
+            acc = self.navigating_position_accuracy
+        self.publishCommand('go {} {} {} {} m12'.format(int(100*x), int(100*y), int(100*z), int(speed) ))
+        '''
+        while 1:
+            print('wait')
+            if self.get_ok() == True:
+                print('done')
+                return True 
+        '''
+        [x_n, y_n, z_n] = t_wu
+        dx = x_n - x
+        dy = y_n - y
+        dz = z_n - z
+        dl = np.sqrt(dx**2 + dy**2 + dz**2)
+        if dl < np.sqrt(2)*acc:
+            return True
+        else:
+            return False        
 
     # 按照一定频率进行决策，并发布tello格式控制信号
     def decision(self):
 #**************************************************************************************************************************
         if self.flight_state_ == self.FlightState.WAITING:  # 起飞并飞至离墙体（y = 3.0m）适当距离的位置
             rospy.logwarn('State: WAITING')
-            while(1):
-                
+            if self.BAll_flag == 0:
                 self.publishCommand('mon')
-                if state_mid == -1:
+                while True:
+                    print(state_mid)
+                    if state_mid == -1:
+                        
+                        break
+                    self.publishCommand('mon')
+                self.BAll_flag += 1
+            if self.BAll_flag == 1:
+                while(1):
+                    #self.publishCommand('mon', 0.6)
+                    if state_mid == 12:
+                        break
                     self.publishCommand('takeoff')
-                    #self.publishCommand('stop')
-                    #self.publishrc(0, 0, 0)
-                    break
-            rate = rospy.Rate(0.3)
-            rate.sleep()
-            self.switch_state(self.FlightState.DETECTING_TARGET)
+                        #self.publishCommand('stop')
+                        #self.publishrc(0, 0, 0)
+                self.BAll_flag += 1
+            if self.BAll_flag == 2:
+                self.switch_state(self.FlightState.TEST)
             #rate.sleep()   
             #rate.sleep()     
 #**************************************************************************************************************************
@@ -574,8 +625,11 @@ class ControllerNode:
                 self.BAll_flag += 1
                 self.go_flag = 1
             if self.BAll_flag == 1:
-                if self.go(0.5, -0.5, 2, 100, 0) == True:
-                    self.switch_state(self.FlightState.LANDING)
+                if self.go(0,-1,1) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 2:
+                self.test_mode()
+                
 #**************************************************************************************************************************       
         elif self.flight_state_ == self.FlightState.NAVIGATING:
             '''
@@ -673,6 +727,7 @@ class ControllerNode:
             if self.BAll_flag == 0:
                 self.fire_position = detector.detectFire(img, record_mode=True)
                 if self.fire_position is not None:
+                    
                     if self.micro_control(-2.3, -11, -11, 0, 0.4) == False:
                         return
                         '''
@@ -706,26 +761,37 @@ class ControllerNode:
                         
                         self.publishrc(0, 0, 0)  
                         return 
-                        '''               
-                    
+                        '''     
+                              
+                    '''
                     if self.fire_position[0] > circle_target['x'] + circle_target['err_x']:
+                        dx = int(abs((self.fire_position[0] - circle_target['x'])*0.1))
                         #win_y = 0.20
-                        self.gen_cmd('right', 20)
+                        self.gen_cmd('right', dx)
                         return
                     elif self.fire_position[0] < circle_target['x'] - circle_target['err_x']:
+                        dx = int(abs((self.fire_position[0] - circle_target['x'])*0.1))
                         #win_y = -0.20
-                        self.gen_cmd('left', 20)
+                        self.gen_cmd('left', dx)
                         return
                     if self.fire_position[1] > circle_target['y'] + circle_target['err_y']:
-                        self.gen_cmd('down', 20)
+                        dz = int(abs((self.fire_position[1] - circle_target['y'])*0.1))
+                        self.gen_cmd('down', dz)
                         #win_z = 1.75
                         return
                     elif self.fire_position[1] < circle_target['y'] - circle_target['err_y']:
-                        self.gen_cmd('up', 20)
+                        dz = int(abs((self.fire_position[1] - circle_target['y'])*0.1))
+                        self.gen_cmd('up', dz)
                         #win_z = 1.30
                         return
-                        
-                    self.BAll_flag += 1
+                    '''
+                    dy = (self.fire_position[0] - circle_target['x'])*0.1*0.01
+                    dz = (circle_target['y'] - self.fire_position[1])*0.1*0.01
+
+                    y_d = t_wu[1] + dy
+                    z_d = t_wu[2] + dz
+                    if self.go(-2, y_d, z_d,100) == True:
+                        self.BAll_flag += 1
                 else:
                     rospy.loginfo('Target lost')
                     self.navigating_queue_ = deque([])
@@ -878,7 +944,16 @@ class ControllerNode:
             msg = String()
             msg.data = 'land'
             self.commandPub_.publish(msg)
-    def publishCommand(self, command_str,sleep = 0.3):
+            with open(txt_path,'a') as f:
+                f.write('land')
+                f.write('\n')
+                f.write('t_wu: ' + str(t_wu))
+                f.write('\n')
+                f.write('r_wu: ' + str(r_wu))
+                f.write('\n')
+                f.write('###############################')
+                f.write('\n')
+    def publishCommand(self, command_str,sleep = 0.5):
         msg = String()
         msg.data = command_str
         print(command_str)
@@ -918,10 +993,11 @@ class ControllerNode:
             f.write('\n')
             f.write('###############################')
             f.write('\n')
-        rate = rospy.Rate(20)
-        rate.sleep()
+        
         #self.test_mode()
         self.commandPub_.publish(msg)
+        rate = rospy.Rate(20)
+        rate.sleep()
 
 if __name__ == '__main__':
     rospy.init_node('tello_control', anonymous=True)
