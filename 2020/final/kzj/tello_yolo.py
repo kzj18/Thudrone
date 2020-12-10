@@ -19,8 +19,6 @@ save_path = python_file + '/data/trash_yolo/' + time.strftime('%b_%d_%Y_%H_%M_%S
 yolo_command = ''
 yolo_command_lock = threading.Lock()
 
-names = ['basketball', 'football', 'volleyball', 'balloon']
-
 class info_updater():
     def __init__(self):
         rospy.Subscriber("yolo_command", String, self.update_command)
