@@ -74,7 +74,8 @@ class info_updater():
                 roll =int(item.split(':')[-1])
             elif 'yaw:' in item:
                 yaw = int(item.split(':')[-1])
-        t_wu = np.array([float(x*0.01), float(y*0.01), float(z*0.01)])
+        if abs(x) < 300 and abs(y) < 200 and abs(z) < 300:
+            t_wu = np.array([float(x*0.01), float(y*0.01), float(z*0.01)])
         r_wu = np.array([pitch, roll, yaw])
         tello_state_lock.release()
 
@@ -154,11 +155,11 @@ class ControllerNode:
         
         if yaw_diff > self.navigating_yaw_accuracy:  # clockwise
             rospy.loginfo('yaw diff: %f'%yaw_diff)
-            self.publishCommand('cw %d' % (int(0.8*yaw_diff) if yaw_diff > self.navigating_yaw_accuracy else self.navigating_yaw_accuracy))
+            self.publishCommand('cw %d' % (int(yaw_diff) if yaw_diff > self.navigating_yaw_accuracy else self.navigating_yaw_accuracy))
             return False
         elif yaw_diff < -self.navigating_yaw_accuracy:  # counterclockwise
             rospy.loginfo('yaw diff: %f'%yaw_diff)
-            self.publishCommand('ccw %d' % (int(-0.8*yaw_diff) if yaw_diff < -self.navigating_yaw_accuracy else self.navigating_yaw_accuracy))
+            self.publishCommand('ccw %d' % (int(-yaw_diff) if yaw_diff < -self.navigating_yaw_accuracy else self.navigating_yaw_accuracy))
             return False
         return True
     def yaw_cal_rc(self, xx, yy, zz, acc = 0):
@@ -478,7 +479,7 @@ class ControllerNode:
                 yaw_desired = self.yaw_cal(xx, yy, zz, phi)
                 rospy.logwarn('angle %f'%yaw_desired)
                 if self.yaw_PID(yaw_desired) == True:
-                    if dh < acc*math.sqrt(3)*5 and (yaw_desired == 0 or yaw_desired == 90 or yaw_desired == -90 or yaw_desired == 179 or yaw_desired == -179 or yaw_desired == 180):
+                    if dh < acc*math.sqrt(3)*5 and (phi == 0 or phi == 90 or phi == -90 or phi == 179 or phi == -179 or phi == 180):
                         self.micro_control(xx, yy, -11, yaw_desired)
                     else:
                         if dh > 1.5:
@@ -735,7 +736,10 @@ class ControllerNode:
                     self.BAll_flag += 1
             elif self.BAll_flag == 2:
                 #if self.micro_control(-0.7, -11, -11, 0) == True:
-                if t_wu[0] < -0.5:
+                if t_wu[0] > -1:
+                    self.switch_state(self.FlightState.BALL1)
+                    return
+                if t_wu[0] < -0.7:
                     self.gen_cmd('forward', int(100*(-0.7-t_wu[0])) )
 
                 else:
@@ -763,11 +767,11 @@ class ControllerNode:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.navigate(1.4, -0.8, -11, -100, 0) == True:
+                if self.navigate(0.6, -1.1, -11, -90, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
-                if self.yaw_PID(-100) == True:
+                if self.yaw_PID(-90) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 3:
                 rospy.logwarn('st3' )
@@ -782,22 +786,22 @@ class ControllerNode:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.micro_control(1.4, -0.8, -11, -100, 0) == True:
+                if self.micro_control(0.6, -1.1, 0.9, -90, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
-                if self.yaw_PID(-100,1) ==True:
+                if self.yaw_PID(-90,1) ==True:
                     self.switch_state(self.FlightState.BALL3)
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.BALL3:                   
             rospy.logwarn('State: BALL3')
             if self.BAll_flag == 0:
                 rospy.logwarn('st0' )
-                if self.yaw_PID(-179,1) == True:
+                if self.yaw_PID(180,1) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.micro_control(1.4, -0.8, -11, 175, 0) == True:
+                if self.micro_control(0.6, -1.1, -11, 180, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
@@ -812,11 +816,11 @@ class ControllerNode:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.micro_control(1.4, -0.8, -11, 90, 0) == True:
+                if self.micro_control(1.3, -0.5, -11, 90, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
-                if self.height_PID(1.1) ==True:
+                if self.height_PID(0.9) ==True:
                     rate = rospy.Rate(0.3)
                     rate.sleep()
                     self.switch_state(self.FlightState.LANDING)            
@@ -824,7 +828,7 @@ class ControllerNode:
         elif self.flight_state_ == self.FlightState.LANDING:
             if self.BAll_flag == 0:
                 rospy.logwarn('st0' )
-                if self.micro_control(2, 0, -11, 90, 0) == True:
+                if self.micro_control(2, 0, -11, 90, 0.5) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
