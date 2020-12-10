@@ -11,6 +11,7 @@ import copy
 import numpy as np
 import time
 import cv2
+import guess
 
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
@@ -22,6 +23,8 @@ img = None
 picture_command_lock = threading.Lock()
 yolo_callback_lock = threading.Lock()
 img_lock = threading.Lock()
+
+names = ['b', 'f', 'v', 'e']
 
 class info_updater():
     def __init__(self):
@@ -54,6 +57,7 @@ class PictureNode:
 
     def __init__(self):
         self.commandPub_ = rospy.Publisher('yolo_command', String, queue_size=1)
+        self.resultPub_ = rospy.Publisher('/target_result', String, queue_size=100)
         self.image_list = []
         self.result_list = []
         self.last_state = {
@@ -135,6 +139,18 @@ class PictureNode:
         txt_path = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
         rospy.logwarn('result was saved to' + txt_path)
         np.savetxt(txt_path, self.result_list, fmt='%d')
+        result = guess.guess(self.result_list)
+        for index, item in result:
+            for _ in range(3):
+                self.publishResult(str(index+1) + names[item])
+        
+
+    def publishResult(self, result_str):
+        msg = String()
+        msg.data = result_str
+        self.resultPub_.publish(msg)
+        rate = rospy.Rate(0.3)
+        rate.sleep()
             
     def publishCommand(self, command_str):
         msg = String()
