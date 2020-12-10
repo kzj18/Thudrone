@@ -130,6 +130,7 @@ class ControllerNode:
         self.detect_times = 0
         self.fast_way = 0
         self.speed_flag = 0
+        self.go_flag = 1
         while not rospy.is_shutdown():
             print(1)
             self.decision()
@@ -147,9 +148,9 @@ class ControllerNode:
             self.navigating_yaw_accuracy = 15
         yaw_diff = yaw_desired - r_wu[2]
         if yaw_diff > 180:
-            yaw_diff = 360 - yaw_diff
+            yaw_diff = -360 +  yaw_diff
         elif yaw_diff <= -180:
-            yaw_diff = -360 - yaw_diff
+            yaw_diff = 360 + yaw_diff
         
         if yaw_diff > self.navigating_yaw_accuracy:  # clockwise
             rospy.loginfo('yaw diff: %f'%yaw_diff)
@@ -351,7 +352,7 @@ class ControllerNode:
             return False
         return True
         
-    def micro_control(self, xx, yy, zz, phi, acc = 0):
+    def micro_control(self, xx, yy, zz, phi, acc = 0, sleep = 0.4):
         '''
         phi can only == 0 90 -90 179 -179 test 180
         input -11 tonot ctrl
@@ -373,26 +374,26 @@ class ControllerNode:
         if xx != -11:
             cmd_var = int(abs(100*(t_wu[0] - xx)))
             if t_wu[0] > xx + acc:
-                self.gen_cmd(cmd[0], cmd_var)
+                self.gen_cmd(cmd[0], cmd_var, sleep)
                 return False
             elif t_wu[0] < xx - acc:
-                self.gen_cmd(cmd[1], cmd_var)               
+                self.gen_cmd(cmd[1], cmd_var, sleep)               
                 return False
         if yy != -11:
             cmd_var = int(abs(100*(t_wu[1] - yy)))
             if t_wu[1] > yy + acc:
-                self.gen_cmd(cmd[2], cmd_var)
+                self.gen_cmd(cmd[2], cmd_var, sleep)
                 return False
             elif t_wu[1] < yy - acc:
-                self.gen_cmd(cmd[3], cmd_var)               
+                self.gen_cmd(cmd[3], cmd_var, sleep)               
                 return False
         if zz != -11:
             cmd_var = int(abs(100*(t_wu[2] - zz)))
             if t_wu[2] > zz + 0.25:
-                self.gen_cmd(cmd[4], cmd_var)
+                self.gen_cmd(cmd[4], cmd_var, sleep)
                 return False
             elif t_wu[2] < zz - 0.25:
-                self.gen_cmd(cmd[5], cmd_var)              
+                self.gen_cmd(cmd[5], cmd_var, sleep)              
                 return False
         
         return True
@@ -480,10 +481,16 @@ class ControllerNode:
                     if dh < acc*math.sqrt(3)*5 and (yaw_desired == 0 or yaw_desired == 90 or yaw_desired == -90 or yaw_desired == 179 or yaw_desired == -179 or yaw_desired == 180):
                         self.micro_control(xx, yy, -11, yaw_desired)
                     else:
+                        if dh > 1.5:
+                            sleep = 0.2
+                        elif dh > 1:
+                            sleep = 0.3
+                        else:
+                            sleep = 0.4
                         rospy.loginfo('dist: %f'%dh)
                         cmd_h = 100*dh 
                         rospy.logwarn('%s'%self.cmd_dim)
-                        self.gen_cmd(self.cmd_dim, int(cmd_h))
+                        self.gen_cmd(self.cmd_dim, int(cmd_h), sleep)
                         #self.publishCommand(self.cmd_dim + str(int(cmd_h)))
                         #self.height_PID(zz)
                         return False
@@ -520,6 +527,27 @@ class ControllerNode:
         self.flight_state_ = next_stage
         #self.switchNavigatingState()
         self.BAll_flag = 0
+    def go(self,x,y,z,speed,phi):
+        (x_now, y_now, z_now) = t_wu
+        dx = x - x_now
+        dy = y - y_now
+        dz = z - z_now
+        dr = np.sqrt(dx**2 + dy**2 + dz**2)
+        if dr < np.sqrt(3)*self.navigating_position_accuracy:
+            self.go_flag = 1
+            return True
+        else:
+            if self.go_flag == 1:
+                cmd = 'go ' + str(int(100*x)) + ' ' + str(int(100*y)) + ' ' + str(int(100*z)) + ' ' + str(int(speed))
+                self.publishCommand(cmd,0.6)
+                self.go_flag = 0
+            else:
+                print('go')
+                if self.micro_control(x,y,z,phi,0,0.4) == True:
+                    self.go_flag = 1
+                    return True
+        return False
+        
 
     # 按照一定频率进行决策，并发布tello格式控制信号
     def decision(self):
@@ -542,7 +570,10 @@ class ControllerNode:
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.TEST:
             if self.BAll_flag == 0:
-                if self.rush_rc(0.5,-1,2) == True:
+                self.BAll_flag += 1
+                self.go_flag = 1
+            if self.BAll_flag == 1:
+                if self.go(0.5, -0.5, 2, 100, 0) == True:
                     self.switch_state(self.FlightState.LANDING)
 #**************************************************************************************************************************       
         elif self.flight_state_ == self.FlightState.NAVIGATING:
@@ -604,17 +635,19 @@ class ControllerNode:
             rospy.logwarn('index %d'% self.win_index)
             # 如果无人机飞行高度与标识高度（1.75m）相差太多，则需要进行调整
             #self.yaw_desired = 0
+        
             
-            '''
             if self.micro_control(-11, self.window_y_list_[self.win_index], -11, 0) == False:
                 return
             if self.micro_control(-2.3, -11, -11, 0) == False:
                 return
-            if self.micro_control(-11, -11, 1.65, 0) == False:
+            if self.micro_control(-11, -11, 1.60, 0, 0.2, 0.3) == False:
                 return
-            '''
-            if self.rush_rc(-2.3, self.window_y_list_[self.win_index], 1.65) == False:
-                return
+                #self.go_flag = 1
+                '''
+                if self.go(-2.3, self.window_y_list_[self.win_index], 1.65, 100, 0) == False:
+                    return
+                '''
             elif detector.detectFire(img, record_mode=True) is not None:
                 rospy.loginfo('Target detected.')
                 self.fire_position = detector.detectFire(img, record_mode=True)
@@ -641,6 +674,7 @@ class ControllerNode:
                 if self.fire_position is not None:
                     if self.micro_control(-2.3, -11, -11, 0, 0.4) == False:
                         return
+                        '''
                     if abs(self.fire_position[0] - circle_target['x']) > circle_target['err_x'] or abs(self.fire_position[1] - circle_target['y']) > circle_target['err_y']:
                         throttle = 30
                         x_fire = self.fire_position[0]
@@ -649,16 +683,16 @@ class ControllerNode:
                         d_x = x_fire - circle_target['x']
                         if d_x == 0:
                             if d_y > 0:
-                                theta = 180
+                                theta = 90
                             elif d_y < 0:
-                                theta = 0
+                                theta = -90
                             else:
                                 theta = 0
                         else:
                             theta = math.degrees(math.atan(d_y/d_x)) 
                         theta_ = np.deg2rad(theta)
-                        up_throttle = throttle*np.sin(theta_)
-                        roll_throttle = int(-throttle*np.cos(theta_))
+                        up_throttle = -throttle*np.sin(theta_)
+                        roll_throttle = int(throttle*np.cos(theta_))
                         if up_throttle > 0:
                             k_th = 1.5
                         elif up_throttle < 0:
@@ -670,8 +704,9 @@ class ControllerNode:
                         self.publishrc(roll_throttle, 0, up_throttle)
                         
                         self.publishrc(0, 0, 0)  
-                        return                
-                    '''
+                        return 
+                        '''               
+                    
                     if self.fire_position[0] > circle_target['x'] + circle_target['err_x']:
                         #win_y = 0.20
                         self.gen_cmd('right', 20)
@@ -688,7 +723,7 @@ class ControllerNode:
                         self.gen_cmd('up', 20)
                         #win_z = 1.30
                         return
-                        '''
+                        
                     self.BAll_flag += 1
                 else:
                     rospy.loginfo('Target lost')
@@ -699,7 +734,11 @@ class ControllerNode:
                 if self.yaw_PID(0,1) == True:
                     self.BAll_flag += 1
             elif self.BAll_flag == 2:
-                if self.micro_control(-0.7, -11, -11, 0) == True:
+                #if self.micro_control(-0.7, -11, -11, 0) == True:
+                if t_wu[0] < -0.5:
+                    self.gen_cmd('forward', int(100*(-0.7-t_wu[0])) )
+
+                else:
                     self.switch_state(self.FlightState.BALL1)
                     return
                 #print([win_y,win_z])
@@ -724,11 +763,11 @@ class ControllerNode:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.navigate(0.6, -1, -11, -90, 0) == True:
+                if self.navigate(1.4, -0.8, -11, -100, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
-                if self.yaw_PID(-90) == True:
+                if self.yaw_PID(-100) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 3:
                 rospy.logwarn('st3' )
@@ -743,17 +782,54 @@ class ControllerNode:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.micro_control(0.6, -1, -11, -90, 0) == True:
+                if self.micro_control(1.4, -0.8, -11, -100, 0) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 2:
                 rospy.logwarn('st2' )
-                if self.yaw_PID(-95,1) ==True:
-                    self.publishCommand('stop')
-                 
+                if self.yaw_PID(-100,1) ==True:
+                    self.switch_state(self.FlightState.BALL3)
+#**************************************************************************************************************************
+        elif self.flight_state_ == self.FlightState.BALL3:                   
+            rospy.logwarn('State: BALL3')
+            if self.BAll_flag == 0:
+                rospy.logwarn('st0' )
+                if self.yaw_PID(-179,1) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 1:
+                rospy.logwarn('st1' )
+                if self.micro_control(1.4, -0.8, -11, 175, 0) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 2:
+                rospy.logwarn('st2' )
+                if self.height_PID(0.9) ==True:
+                    self.switch_state(self.FlightState.BALL4)        
+#**************************************************************************************************************************
+        elif self.flight_state_ == self.FlightState.BALL4:                   
+            rospy.logwarn('State: BALL4')
+            if self.BAll_flag == 0:
+                rospy.logwarn('st0' )
+                if self.yaw_PID(90) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 1:
+                rospy.logwarn('st1' )
+                if self.micro_control(1.4, -0.8, -11, 90, 0) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 2:
+                rospy.logwarn('st2' )
+                if self.height_PID(1.1) ==True:
+                    rate = rospy.Rate(0.3)
+                    rate.sleep()
+                    self.switch_state(self.FlightState.LANDING)            
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.LANDING:
-            rospy.logwarn('State: LANDING')
-            self.publishCommand('land')
+            if self.BAll_flag == 0:
+                rospy.logwarn('st0' )
+                if self.micro_control(2, 0, -11, 90, 0) == True:
+                    self.BAll_flag += 1
+            if self.BAll_flag == 1:
+                rospy.logwarn('st1' )
+                rospy.logwarn('State: LANDING')
+                self.publishCommand('land')
 
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.FAST_LANDING:
@@ -777,7 +853,7 @@ class ControllerNode:
             self.flight_state_ = self.next_state_ if not self.next_state_ == None else self.flight_state_
 
     # 向相关topic发布tello命令
-    def gen_cmd(self, cmd, val):
+    def gen_cmd(self, cmd, val, sleep = 0.3):
         '''
         cmd only can be left\\right\\up\\down\\forward\\back\\cw\\ccw
         '''
@@ -791,25 +867,34 @@ class ControllerNode:
                 val = 500
             if val < 20:
                 val = 20
-        self.publishCommand(str(cmd)+' '+str(val))
+        self.publishCommand(str(cmd)+' '+str(val),sleep)
     def test_mode(self):
         a = str(input())
         if a == '2':
             msg = String()
             msg.data = 'land'
             self.commandPub_.publish(msg)
-    def publishCommand(self, command_str):
+    def publishCommand(self, command_str,sleep = 0.3):
         msg = String()
         msg.data = command_str
         print(command_str)
         print(t_wu)
+        with open(txt_path,'a') as f:
+            f.write(command_str)
+            f.write('\n')
+            f.write('t_wu: ' + str(t_wu))
+            f.write('\n')
+            f.write('r_wu: ' + str(r_wu))
+            f.write('\n')
+            f.write('###############################')
+            f.write('\n')
 
         '''
         if command_str != 'mon' and command_str != 'stop' and command_str != 'land':
             self.test_mode()
             '''
         self.commandPub_.publish(msg)
-        rate = rospy.Rate(0.3)
+        rate = rospy.Rate(sleep)
         rate.sleep()
     def publishrc(self, roll_val, pitch_val, th_val, yaw_val = 0):
         msg = String()
