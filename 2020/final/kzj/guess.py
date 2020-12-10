@@ -29,9 +29,9 @@ def guess(results):
                 if not class_num == 3:
                     result_no_3.append(class_num)
             if not result_no_3 == []:
-                result_list_2.append(max(result_no_3, key=lambda a: a.count))
+                result_list_2.append(max(result_no_3, key=lambda a: result_no_3.count(a)))
             else:
-                result_list_2.append(max(result, key=lambda a: a.count))
+                result_list_2.append(max(result, key=lambda a: result.count(a)))
     print('STEP 2: result is %s'%result_list_2)
     class_list = [0, 1, 2]
     undo_list = []
@@ -49,7 +49,7 @@ def guess(results):
         undo_copy = copy.deepcopy(undo_list)
         for index, item in enumerate(class_list):
             result_list_2[undo_list[index]] = item
-            del undo_copy[index]
+            undo_copy.remove(undo_list[index])
         for index in undo_copy:
             result_list_2[index] = 3
     print('STEP 3: result is %s'%result_list_2)

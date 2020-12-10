@@ -5,7 +5,7 @@ import os
 import rospy
 import threading
 from cv_bridge import CvBridge, CvBridgeError
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from sensor_msgs.msg import Image
 import copy
 import numpy as np
@@ -16,6 +16,8 @@ import guess
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/detect_results/'
+success_msg = Bool()
+success_msg.data = 1
 
 picture_command = ''
 yolo_callback = ''
@@ -58,6 +60,7 @@ class PictureNode:
     def __init__(self):
         self.commandPub_ = rospy.Publisher('yolo_command', String, queue_size=1)
         self.resultPub_ = rospy.Publisher('/target_result', String, queue_size=100)
+        self.donePub_ = rospy.Publisher('/done', Bool, queue_size=100)
         self.image_list = []
         self.result_list = []
         self.last_state = {
@@ -74,6 +77,7 @@ class PictureNode:
             '0n'
         ]
         self.communicate_start = False
+        self.end_start = False
         self.counter = 0
         self.send_times = 0
         self.change_times = 0
@@ -101,8 +105,8 @@ class PictureNode:
                     cv2.imwrite(data_path + '%s_%d.png'%(command, self.counter), img_copy)
                     rospy.logwarn('get image ' + self.current_state['picture_command'])
                 elif command == 'end':
-                    self.send_result()
-                    rospy.logwarn('end')
+                    self.end_start = True
+                    rospy.logwarn('begin end')
 
             self.image_list = os.listdir(python_file + '/data/dataset')
             if self.current_state['yolo_callback'] == 'start':
@@ -123,6 +127,10 @@ class PictureNode:
                 self.result_list[yolo_counter - 1][1] = int(answer)
                 rospy.logwarn('finish image %d from box %s, the answer is %s'%(self.counter, self.last_answer, answer))
 
+                if self.end_start and self.counter == yolo_counter:
+                    self.send_result()
+                    rospy.logwarn('finish end')
+
                 if not len(self.image_list) == 0:
                     self.last_answer = self.image_list[0].split('_')[0]
                     self.command = self.image_list[0].split('.')[0]
@@ -140,17 +148,16 @@ class PictureNode:
         rospy.logwarn('result was saved to' + txt_path)
         np.savetxt(txt_path, self.result_list, fmt='%d')
         result = guess.guess(self.result_list)
-        for index, item in result:
-            for _ in range(3):
-                self.publishResult(str(index+1) + names[item])
+        for index, item in enumerate(result):
+            self.publishResult(str(index+1) + names[item])
+        time.sleep(0.01)
+        self.donePub_.publish(success_msg)
         
 
     def publishResult(self, result_str):
         msg = String()
         msg.data = result_str
         self.resultPub_.publish(msg)
-        rate = rospy.Rate(0.3)
-        rate.sleep()
             
     def publishCommand(self, command_str):
         msg = String()
