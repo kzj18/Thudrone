@@ -69,20 +69,7 @@ def detectFire(image, color='r', record_mode = False):
         recordpic(record_data, 'original_unsuccess', circle_pic)
         recordpic(record_data, 'gray_unsuccess', gray_image)
     return None
-    
-def cv22Image(img):
-    b, g, r = cv2.split(img)
-    img = cv2.merge([r, g, b])
-    img = np.array(img)
-    return Image.fromarray(np.uint8(img))
-
-def detectBall(img, counter):
-    weight = python_file + '/weights/ball.pth'
-    classes = python_file + '/weights/ball.txt'
-    yolo = YOLO(weight=weight, classes=classes)
-    image = cv22Image(img)
-    return yolo.detect_image(image, counter)
-    
+        
 def get_mask(image, color_range, color, task):
     name = task + '_' + color + '_'
     height = image.shape[0]

@@ -61,7 +61,6 @@ class PictureNode:
     global img, picture_command, yolo_callback
 
     def __init__(self):
-        self.commandPub_ = rospy.Publisher('yolo_command', String, queue_size=1)
         self.resultPub_ = rospy.Publisher('/target_result', String, queue_size=100)
         self.finishPicPub_ = rospy.Publisher('finish_pic', String, queue_size=1)
         self.donePub_ = rospy.Publisher('/done', Bool, queue_size=100)
@@ -133,7 +132,7 @@ class PictureNode:
                 self.result_list[yolo_counter - 1][1] = int(answer)
                 rospy.logwarn('finish image %d from box %s, the answer is %s'%(self.counter, self.last_answer, answer))
 
-                if self.end_start and self.counter == yolo_counter:
+                if self.end_start and self.counter == pic_num:
                     self.send_result()
                     rospy.logwarn('finish end')
 
@@ -143,13 +142,13 @@ class PictureNode:
                     self.send_times += 1
                     rospy.logwarn('send image %d from box %s, send times is %d'%(self.counter, self.last_answer, self.send_times))
 
-            if not self.command == '':
-                self.publishCommand(self.command)
-
     def send_result(self):
         result = np.loadtxt(txt_path)
+        result = result.astype(np.int8)
         while not len(result) == pic_num:
+            print(len(result))
             result = np.loadtxt(txt_path)
+            result = result.astype(np.int8)
         rospy.logwarn('the result is: ' + str(result))
         rospy.logwarn('result was saved to' + txt_path_2)
         np.savetxt(txt_path_2, result, fmt='%d')
@@ -158,6 +157,7 @@ class PictureNode:
             self.publishResult(str(index+1) + names[item])
         time.sleep(0.01)
         self.donePub_.publish(success_msg)
+        exit()
         
 
     def publishResult(self, result_str):
@@ -168,14 +168,6 @@ class PictureNode:
             time.sleep(0.01)
             self.resultPub_.publish(msg)
             
-    def publishCommand(self, command_str):
-        msg = String()
-        msg.data = command_str
-        self.commandPub_.publish(msg)
-        for _ in range(5):
-            time.sleep(0.01)
-            self.commandPub_.publish(msg)
-
     def publishFinishPic(self, command_str):
         msg = String()
         msg.data = str(command_str)
