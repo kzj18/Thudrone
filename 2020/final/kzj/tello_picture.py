@@ -102,10 +102,10 @@ class PictureNode:
                 if command in ['1', '2', '3', '4', '5'] and not img is None:
                     img_copy = copy.deepcopy(img)
                     self.counter += 1
+                    self.publishFinishPic(self.counter)
                     while len(self.result_list) < self.counter:
                         self.result_list.append([-1, -1])
                     self.result_list[self.counter - 1][0] = int(command)
-                    self.publishFinishPic(self.counter)
                     cv2.imwrite(data_path + '%s_%d.png'%(command, self.counter), img_copy)
                     rospy.logwarn('get image ' + self.current_state['picture_command'])
                 elif command == 'end':
