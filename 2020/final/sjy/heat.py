@@ -221,7 +221,7 @@ class ControllerNode:
         input 1 to use precise PID
         '''
         if accuracy == 1:
-            self.navigating_yaw_accuracy = 7
+            self.navigating_yaw_accuracy = 10
         else:
             self.navigating_yaw_accuracy = 15
         yaw_diff = yaw_desired - r_wu[2]
@@ -681,19 +681,11 @@ class ControllerNode:
                 self.BAll_flag += 1
             if self.BAll_flag == 1:
                 self.publishCommand('takeoff')
-                while(1):
-                    #self.publishCommand('mon', 0.6)
-                    if state_mid == 12:
-                        break
-                    self.publishCommand('takeoff')
-                        #self.publishCommand('stop')
-                        #self.publishrc(0, 0, 0)
                 self.BAll_flag += 1
             if self.BAll_flag == 2:
                 #self.gen_cmd('up', 40)
-                self.switch_state(self.FlightState.DETECTING_TARGET)
-                #self.seenfirePub_.publish(success_msg)
-                #self.switch_state(self.FlightState.BALL1)
+                #self.switch_state(self.FlightState.DETECTING_TARGET)
+                self.switch_state(self.FlightState.LANDING)
             #rate.sleep()   
             #rate.sleep()     
 #**************************************************************************************************************************
@@ -800,8 +792,7 @@ class ControllerNode:
             circle_target = {
                 'x': camera_properties['width']/2,
                 'err_x': 100,
-                #'y': camera_properties['height']/2 + 25,
-                'y': camera_properties['height']/2 + 10,
+                'y': camera_properties['height']/2 + 25,
                 'err_y': 80
             }
             if self.BAll_flag == 0:
@@ -867,7 +858,7 @@ class ControllerNode:
                         #win_z = 1.30
                         return
                     '''
-                    dy = (circle_target['x'] - self.fire_position[0])*0.1*0.01*1.1
+                    dy = (circle_target['x'] - self.fire_position[0])*0.1*0.01*1.2
                     dz = (circle_target['y'] - self.fire_position[1])*0.1*0.01*1.2
                     self.win_y_d = t_wu[1] + dy
                     self.win_z_d = t_wu[2] + dz
@@ -935,11 +926,11 @@ class ControllerNode:
                     self.BAll_flag += 2
             elif self.BAll_flag == 2:
                 rospy.logwarn('st2')
-                if self.yaw_PID(-90,1) == True:
+                if self.yaw_PID(-90) == True:
                     self.BAll_flag += 1
             elif self.BAll_flag == 3:
                 rospy.logwarn('st3')
-                self.take_pic(3, 1)
+                self.take_pic(3, 2)
                 self.BAll_flag += 1
             elif self.BAll_flag == 4:
                 self.switch_state(self.FlightState.BALL2)
@@ -958,7 +949,7 @@ class ControllerNode:
                     self.BAll_flag += 1
             elif self.BAll_flag == 2:
                 rospy.logwarn('st2')
-                self.take_pic(2, 1)
+                self.take_pic(2, 2)
                 self.BAll_flag += 1
             elif self.BAll_flag == 3:
                 self.switch_state(self.FlightState.BALL3)
@@ -975,7 +966,7 @@ class ControllerNode:
                     self.BAll_flag += 1
             elif self.BAll_flag == 2:
                 rospy.logwarn('st2')
-                self.take_pic(1, 1)
+                self.take_pic(1, 2)
                 self.BAll_flag += 1
             elif self.BAll_flag == 3:
                 self.switch_state(self.FlightState.BALL4)
@@ -985,32 +976,24 @@ class ControllerNode:
             rospy.logwarn('State: BALL4')
             if self.BAll_flag == 0:
                 rospy.logwarn('st0' )
-                if self.go(1.4, -0.2, 1.2, 100) == True:
+                if self.go(1.3, -0.5, 1.2, 100) == True:
                     self.BAll_flag += 1
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
-                if self.yaw_PID(90,1) == True:
+                if self.yaw_PID(90) == True:
                     self.BAll_flag += 1
             elif self.BAll_flag == 2:
                 rospy.logwarn('st2')
-                self.take_pic(4, 1)
+                self.take_pic(4, 2)
                 self.BAll_flag += 1
             elif self.BAll_flag == 3:
                 rospy.logwarn('st2')
                 self.switch_state(self.FlightState.LANDING)           
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.LANDING:
-            if self.BAll_flag == 0:
-                rospy.logwarn('st0' )
-                if self.go(2, -0.5, 0.5, 100) == True:
-                    #yuan lai shi 1.2
-                    self.BAll_flag += 1
-            if self.BAll_flag == 1:
-                rospy.logwarn('st1' )
-                rospy.logwarn('State: LANDING')
-                self.publishCommand('land')
-                #self.publishCommand('emergency')
-                self.publishImageCommand('end')
+            self.publishCommand('land')
+            #self.publishCommand('emergency')
+
 
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.FAST_LANDING:

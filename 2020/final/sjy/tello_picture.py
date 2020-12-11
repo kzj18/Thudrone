@@ -16,10 +16,12 @@ import guess
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/detect_results/'
-txt_path = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
+txt_path = save_path + 'result.txt'
+txt_path_2 = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
 success_msg = Bool()
 success_msg.data = 1
 
+pic_num = 4
 picture_command = ''
 yolo_callback = ''
 img = None
@@ -59,8 +61,8 @@ class PictureNode:
     global img, picture_command, yolo_callback
 
     def __init__(self):
-        self.commandPub_ = rospy.Publisher('yolo_command', String, queue_size=1)
         self.resultPub_ = rospy.Publisher('/target_result', String, queue_size=100)
+        self.finishPicPub_ = rospy.Publisher('finish_pic', String, queue_size=1)
         self.donePub_ = rospy.Publisher('/done', Bool, queue_size=100)
         self.image_list = []
         self.result_list = []
@@ -83,6 +85,7 @@ class PictureNode:
         self.send_times = 0
         self.change_times = 0
         self.command = ''
+        self.publishFinishPic(0)
         start = time.time()
         for picture in os.listdir(data_path):
             os.remove(data_path + picture)
@@ -100,6 +103,7 @@ class PictureNode:
                 if command in ['1', '2', '3', '4', '5'] and not img is None:
                     img_copy = copy.deepcopy(img)
                     self.counter += 1
+                    self.publishFinishPic(self.counter)
                     while len(self.result_list) < self.counter:
                         self.result_list.append([-1, -1])
                     self.result_list[self.counter - 1][0] = int(command)
@@ -128,7 +132,7 @@ class PictureNode:
                 self.result_list[yolo_counter - 1][1] = int(answer)
                 rospy.logwarn('finish image %d from box %s, the answer is %s'%(self.counter, self.last_answer, answer))
 
-                if self.end_start and self.counter == yolo_counter:
+                if self.end_start and self.counter == pic_num:
                     self.send_result()
                     rospy.logwarn('finish end')
 
@@ -138,33 +142,39 @@ class PictureNode:
                     self.send_times += 1
                     rospy.logwarn('send image %d from box %s, send times is %d'%(self.counter, self.last_answer, self.send_times))
 
-            if not self.command == '':
-                self.publishCommand(self.command)
-
     def send_result(self):
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-        rospy.logwarn('the result is: ' + str(self.result_list))
-        rospy.logwarn('result was saved to' + txt_path)
-        np.savetxt(txt_path, self.result_list, fmt='%d')
-        result = guess.guess(self.result_list)
+        result = np.loadtxt(txt_path)
+        result = result.astype(np.int8)
+        while not len(result) == pic_num:
+            print(len(result))
+            result = np.loadtxt(txt_path)
+            result = result.astype(np.int8)
+        rospy.logwarn('the result is: ' + str(result))
+        rospy.logwarn('result was saved to' + txt_path_2)
+        np.savetxt(txt_path_2, result, fmt='%d')
+        result = guess.guess(result)
         for index, item in enumerate(result):
             self.publishResult(str(index+1) + names[item])
         time.sleep(0.01)
         self.donePub_.publish(success_msg)
+        exit()
         
 
     def publishResult(self, result_str):
         msg = String()
         msg.data = result_str
         self.resultPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.resultPub_.publish(msg)
             
-    def publishCommand(self, command_str):
+    def publishFinishPic(self, command_str):
         msg = String()
-        msg.data = command_str
-        self.commandPub_.publish(msg)
-        rate = rospy.Rate(0.3)
-        rate.sleep()
+        msg.data = str(command_str)
+        self.finishPicPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.finishPicPub_.publish(msg)
 
 if __name__ == "__main__":
     rospy.init_node('tello_picture', anonymous=True)
