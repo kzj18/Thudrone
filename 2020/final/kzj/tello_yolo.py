@@ -77,9 +77,9 @@ class PictureNode:
         msg = String()
         msg.data = command_str
         self.answerPub_.publish(msg)
-        rate = rospy.Rate(0.3)
-        rate.sleep()
-
+        time.sleep(0.05)
+        self.answerPub_.publish(msg)
+        
 if __name__ == "__main__":
     rospy.init_node('tello_yolo', anonymous=True)
     rospy.logwarn('Yolo dealer node set up.')
