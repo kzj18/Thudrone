@@ -16,10 +16,12 @@ import guess
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/detect_results/'
-txt_path = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
+txt_path = save_path + 'result.txt'
+txt_path_2 = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
 success_msg = Bool()
 success_msg.data = 1
 
+pic_num = 8
 picture_command = ''
 yolo_callback = ''
 img = None
@@ -145,12 +147,13 @@ class PictureNode:
                 self.publishCommand(self.command)
 
     def send_result(self):
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-        rospy.logwarn('the result is: ' + str(self.result_list))
-        rospy.logwarn('result was saved to' + txt_path)
-        np.savetxt(txt_path, self.result_list, fmt='%d')
-        result = guess.guess(self.result_list)
+        result = np.loadtxt(txt_path)
+        while not len(result) == pic_num:
+            result = np.loadtxt(txt_path)
+        rospy.logwarn('the result is: ' + str(result))
+        rospy.logwarn('result was saved to' + txt_path_2)
+        np.savetxt(txt_path_2, result, fmt='%d')
+        result = guess.guess(result)
         for index, item in enumerate(result):
             self.publishResult(str(index+1) + names[item])
         time.sleep(0.01)

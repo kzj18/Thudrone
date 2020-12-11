@@ -11,11 +11,16 @@ import copy
 import cv2
 import detector
 import time
+import numpy as np
+import tello_picture
 
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/trash_yolo/' + time.strftime('%b_%d_%Y_%H_%M_%S/')
+'''
 txt_path = save_path + 'detect_result.txt'
+'''
+txt_path = python_file + '/data/detect_results/result.txt'
 
 yolo_command = ''
 yolo_command_lock = threading.Lock()
@@ -43,12 +48,18 @@ class PictureNode:
         self.last_command = ''
         self.now_command = ''
         self.yolo_callback = ''
+        self.result_list = []
 
         while not rospy.is_shutdown():
             self.now_command = yolo_command
             if self.counter == 0:
                 self.publishCommand('start')
             if not self.last_command == self.now_command:
+                command = self.now_command.split('_')[0]
+                pic_command = self.now_command.split('_')[1]
+                while len(self.result_list) < pic_command:
+                    self.result_list.append([-1, -1])
+                self.result_list[pic_command - 1][0] = int(command)
                 pic_path = data_path + self.now_command + '.png'
                 if os.path.exists(pic_path):
                     img = cv2.imread(pic_path)
@@ -64,11 +75,20 @@ class PictureNode:
                     if not result == []:
                         answer = max(result, key=lambda x: x[0])
                         self.yolo_callback = str(int(answer[0])) + '_' + str(self.counter)
+                        self.result_list[self.counter - 1][1] = int(answer[0])
                     else:
                         self.yolo_callback = '3_' + str(self.counter)
+                        self.result_list[self.counter - 1][1] = 3
+                    if not os.path.exists(python_file + '/data/detect_results/'):
+                        os.makedirs(python_file + '/data/detect_results/')
+                    if os.path.exists(txt_path):
+                        os.remove(txt_path)
+                    np.savetxt(txt_path, self.result_list, fmt='%d')
+                    '''
                     with open(txt_path,'a') as f:
                         f.write(self.yolo_callback)
                         f.write('\n')
+                        '''
                     rospy.logwarn('command: ' + self.yolo_callback)
                 else:
                     rospy.logwarn('path not exists: ' + pic_path)
