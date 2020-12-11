@@ -46,10 +46,13 @@ is_takeoff_command_received_ = False
 is_ready_ = False
 OK = ''
 last_OK = 'false'
+last_pic = 'false'
+finish_pic = 0
 tello_state_lock = threading.Lock()
 img_lock = threading.Lock()
 OK_lock = threading.Lock()
 license_lock = threading.Lock()
+finish_pic_lock = threading.Lock()
 camera_properties = {
     'height': 720,
     'width': 960
@@ -60,6 +63,7 @@ class info_updater():
         rospy.Subscriber("tello_state", String, self.update_state)
         rospy.Subscriber("tello_image", Image, self.update_img)
         rospy.Subscriber('OK', String, self.update_OK)
+        rospy.Subscriber('finish_pic', String, self.update_finish_pic)
         rospy.Subscriber('/takeoff', Bool, self.update_license)
         self.con_thread = threading.Thread(target = rospy.spin)
         self.con_thread.start()
@@ -117,7 +121,11 @@ class info_updater():
             is_takeoff_command_received_ = True
         license_lock.release()
     
-
+    def update_finish_pic(self, data):
+        global finish_pic, finish_pic_lock
+        finish_pic_lock.acquire()
+        finish_pic = int(data.data)
+        finish_pic_lock.release()
 
 class ControllerNode:
     global img, t_wu, r_wu, state_mid
@@ -169,6 +177,7 @@ class ControllerNode:
         self.detect_times = 0
         self.fast_way = 0
         self.speed_flag = 0
+        self.pic_flag = 0
         
         while not rospy.is_shutdown():
             #print(1)
@@ -182,6 +191,30 @@ class ControllerNode:
             return True
         else:
             return False
+    def get_pic(self):
+        global finish_pic, finish_pic_lock, last_pic
+        if finish_pic != last_pic:
+            last_pic = finish_pic
+            return True
+        else:
+            return False
+    def wait_pic_done(self):
+        while self.get_pic() == False:
+            rospy.loginfo('not rescive')
+            #self.commandPub_.publish(stop_msg)
+        return True
+    def wait_cmd_ok(self):
+        while self.get_ok() == False:
+            rospy.loginfo('not rescive')
+            #self.commandPub_.publish(stop_msg)
+        return True
+    def take_pic(self, num, times):
+        for _ in range(int(times)) :
+            self.publishImageCommand(num)
+            #self.commandPub_.publish(stop_msg)
+            self.wait_pic_done()
+        
+
     def yaw_PID(self, yaw_desired, accuracy = 0):
         '''
         yaw control 
@@ -854,8 +887,10 @@ class ControllerNode:
                     self.switch_state(self.FlightState.BALL1)
                     return
                 if t_wu[0] < -0.7:
-                    self.gen_cmd('forward', int(100*(-0.7-t_wu[0])) )
-
+                    self.gen_cmd('forward', int(100*(-0.7-t_wu[0])), 0.3)
+                    if int(100*(-0.7-t_wu[0])) > 100:
+                        self.switch_state(self.FlightState.BALL1)   
+                        return
                 else:
                     #self.test_mode()
                     self.switch_state(self.FlightState.BALL1)
@@ -892,14 +927,14 @@ class ControllerNode:
                 if self.go(0.6, -1.1, 1.4, 100) == True:
                     self.BAll_flag += 2
             elif self.BAll_flag == 2:
-                rospy.logwarn('st1')
+                rospy.logwarn('st2')
                 if self.yaw_PID(-90) == True:
                     self.BAll_flag += 1
             elif self.BAll_flag == 3:
-                rospy.logwarn('st2')
-                self.publishImageCommand(3)
-                self.commandPub_.publish(stop_msg)
-                self.publishImageCommand(3)
+                rospy.logwarn('st3')
+                self.take_pic(3, 2)
+                self.BAll_flag += 1
+            elif self.BAll_flag == 4:
                 self.switch_state(self.FlightState.BALL2)
             
 
@@ -913,11 +948,13 @@ class ControllerNode:
             if self.BAll_flag == 1:
                 rospy.logwarn('st1' )
                 if self.yaw_PID(-90,1) ==True:
-                    #2
-                    self.publishImageCommand(2)
-                    self.commandPub_.publish(stop_msg)
-                    self.publishImageCommand(2)
-                    self.switch_state(self.FlightState.BALL3)
+                    self.BAll_flag += 1
+            elif self.BAll_flag == 2:
+                rospy.logwarn('st2')
+                self.take_pic(2, 2)
+                self.BAll_flag += 1
+            elif self.BAll_flag == 3:
+                self.switch_state(self.FlightState.BALL3)
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.BALL3:                   
             rospy.logwarn('State: BALL3')
@@ -925,17 +962,17 @@ class ControllerNode:
                 rospy.logwarn('st0' )
                 if self.go(0.6, -1.1, 0.9, 100) == True:
                     self.BAll_flag += 1
-            if self.BAll_flag == 1:
+            elif self.BAll_flag == 1:
                 rospy.logwarn('st1' )
                 if self.yaw_PID(180,1) == True:
                     self.BAll_flag += 1
-            if self.BAll_flag == 2:
-                rospy.logwarn('st2' )
-                #1
-                self.publishImageCommand(1)
-                self.commandPub_.publish(stop_msg)
-                self.publishImageCommand(1)
-                self.switch_state(self.FlightState.BALL4)        
+            elif self.BAll_flag == 2:
+                rospy.logwarn('st2')
+                self.take_pic(1, 2)
+                self.BAll_flag += 1
+            elif self.BAll_flag == 3:
+                self.switch_state(self.FlightState.BALL4)
+                   
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.BALL4:                   
             rospy.logwarn('State: BALL4')
@@ -947,12 +984,13 @@ class ControllerNode:
                 rospy.logwarn('st1' )
                 if self.yaw_PID(90) == True:
                     self.BAll_flag += 1
-            if self.BAll_flag == 2:
-                rospy.logwarn('st2' )
-                self.publishImageCommand(4)
-                self.commandPub_.publish(stop_msg)
-                self.publishImageCommand(4)
-                self.switch_state(self.FlightState.LANDING)            
+            elif self.BAll_flag == 2:
+                rospy.logwarn('st2')
+                self.take_pic(4, 2)
+                self.BAll_flag += 1
+            elif self.BAll_flag == 3:
+                rospy.logwarn('st2')
+                self.switch_state(self.FlightState.LANDING)           
 #**************************************************************************************************************************
         elif self.flight_state_ == self.FlightState.LANDING:
             if self.BAll_flag == 0:
@@ -1037,8 +1075,12 @@ class ControllerNode:
             self.test_mode()
             '''
         self.commandPub_.publish(msg)
-        rate = rospy.Rate(sleep)
-        rate.sleep()
+        if  sleep == -1:
+            
+            self.wait_cmd_ok()
+        else:
+            rate = rospy.Rate(sleep)
+            rate.sleep()
     def publishrc(self, roll_val, pitch_val, th_val, yaw_val = 0):
         msg = String()
         command_str = 'rc {} {} {} {}'.format(str(roll_val), str(pitch_val), str(th_val), str(yaw_val))
@@ -1069,6 +1111,9 @@ class ControllerNode:
         msg.data = str(command_str) + '_' + str(self.picture_counter)
         print('command sent: ' + str(command_str))
         self.imgcommandPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.imgcommandPub_.publish(msg)
         
 if __name__ == '__main__':
     rospy.init_node('tello_control', anonymous=True)
