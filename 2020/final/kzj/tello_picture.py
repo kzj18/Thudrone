@@ -161,22 +161,25 @@ class PictureNode:
         msg = String()
         msg.data = result_str
         self.resultPub_.publish(msg)
-        time.sleep(0.05)
-        self.resultPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.resultPub_.publish(msg)
             
     def publishCommand(self, command_str):
         msg = String()
         msg.data = command_str
         self.commandPub_.publish(msg)
-        time.sleep(0.05)
-        self.commandPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.commandPub_.publish(msg)
 
     def publishFinishPic(self, command_str):
         msg = String()
         msg.data = str(command_str)
         self.finishPicPub_.publish(msg)
-        time.sleep(0.05)
-        self.finishPicPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.finishPicPub_.publish(msg)
 
 if __name__ == "__main__":
     rospy.init_node('tello_picture', anonymous=True)
