@@ -15,6 +15,7 @@ import time
 python_file = os.path.dirname(__file__)
 data_path = python_file + '/data/dataset/'
 save_path = python_file + '/data/trash_yolo/' + time.strftime('%b_%d_%Y_%H_%M_%S/')
+txt_path = save_path + 'detect_result.txt'
 
 yolo_command = ''
 yolo_command_lock = threading.Lock()
@@ -64,7 +65,10 @@ class PictureNode:
                         answer = max(result, key=lambda x: x[0])
                         self.yolo_callback = str(int(answer[0])) + '_' + str(self.counter)
                     else:
-                        self.yolo_callback = '4_' + str(self.counter)
+                        self.yolo_callback = '3_' + str(self.counter)
+                    with open(txt_path,'a') as f:
+                        f.write(self.yolo_callback)
+                        f.write('\n')
                     rospy.logwarn('command: ' + self.yolo_callback)
                 else:
                     rospy.logwarn('path not exists: ' + pic_path)
@@ -77,8 +81,9 @@ class PictureNode:
         msg = String()
         msg.data = command_str
         self.answerPub_.publish(msg)
-        time.sleep(0.05)
-        self.answerPub_.publish(msg)
+        for _ in range(5):
+            time.sleep(0.01)
+            self.answerPub_.publish(msg)
         
 if __name__ == "__main__":
     rospy.init_node('tello_yolo', anonymous=True)
