@@ -101,6 +101,9 @@ class PictureNode:
                 if len(self.result_list) == pic_num or confident(self.result_list):
                     if not os.path.exists(txt_path):
                         np.savetxt(txt_path, self.result_list, fmt='%d')
+                        while True:
+                            self.publishCommand('end')
+                            time.sleep(0.01)
             else:
                 if not self.yolo_callback == '':
                     self.publishCommand(self.yolo_callback)
