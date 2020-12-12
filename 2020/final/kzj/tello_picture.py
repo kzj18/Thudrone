@@ -21,7 +21,7 @@ txt_path_2 = save_path + time.strftime('%b_%d_%Y_%H_%M_%S') + '.txt'
 success_msg = Bool()
 success_msg.data = 1
 
-pic_num = 8
+pic_num = 4
 picture_command = ''
 yolo_callback = ''
 img = None
@@ -132,7 +132,7 @@ class PictureNode:
                 self.result_list[yolo_counter - 1][1] = int(answer)
                 rospy.logwarn('finish image %d from box %s, the answer is %s'%(self.counter, self.last_answer, answer))
 
-                if self.end_start and self.counter == pic_num:
+                if self.end_start and os.path.exists(txt_path):
                     self.send_result()
                     rospy.logwarn('finish end')
 
@@ -145,10 +145,6 @@ class PictureNode:
     def send_result(self):
         result = np.loadtxt(txt_path)
         result = result.astype(np.int8)
-        while not len(result) == pic_num:
-            print(len(result))
-            result = np.loadtxt(txt_path)
-            result = result.astype(np.int8)
         rospy.logwarn('the result is: ' + str(result))
         rospy.logwarn('result was saved to' + txt_path_2)
         np.savetxt(txt_path_2, result, fmt='%d')
@@ -156,9 +152,8 @@ class PictureNode:
         for index, item in enumerate(result):
             self.publishResult(str(index+1) + names[item])
         time.sleep(0.01)
-        self.donePub_.publish(success_msg)
-        exit()
-        
+        while True:
+            self.donePub_.publish(success_msg)
 
     def publishResult(self, result_str):
         msg = String()
