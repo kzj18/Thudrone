@@ -1,0 +1,7 @@
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/install/strip.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/edit_cache.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/h264decoder.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/rebuild_cache.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/list_install_components.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/install/local.dir
+/home/thudrone/catkin_sim/src/tello_control/h264decoder/build/CMakeFiles/install.dir
