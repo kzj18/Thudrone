@@ -801,7 +801,7 @@ class ControllerNode:
                 'x': camera_properties['width']/2,
                 'err_x': 100,
                 #'y': camera_properties['height']/2 + 25,
-                'y': camera_properties['height']/2 + 10,
+                'y': camera_properties['height']/2 ,
                 'err_y': 80
             }
             if self.BAll_flag == 0:
